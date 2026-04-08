@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Crystal Reports RPT (Simplified XML representation) -->
+<Report xmlns="urn:crystal-reports:schemas:report-detail">
+  <ReportName>Patient Census Report</ReportName>
+  <DataSource>OracleConnection</DataSource>
+  <Query>
+    SELECT w.ward_name, w.ward_code, p.patient_id, p.patient_name, 
+           p.admission_date, p.attending_physician, p.diagnosis_code
+    FROM wards w
+    INNER JOIN patients p ON w.ward_id = p.current_ward_id
+    WHERE p.discharge_date IS NULL
+    ORDER BY w.ward_name, p.admission_date
+  </Query>
+  <Formulas>
+    <Formula Name="LengthOfStay">
+      <Expression>SYSDATE - {patients.admission_date}</Expression>
+    </Formula>
+    <Formula Name="WardOccupancy">
+      <Expression>Count({patients.patient_id}) / {wards.bed_capacity} * 100</Expression>
+    </Formula>
+  </Formulas>
+  <Groups>
+    <Group Field="ward_name" SortOrder="Ascending"/>
+  </Groups>
+  <Sections>
+    <GroupHeader>
+      <Field Name="ward_name" FontWeight="Bold"/>
+      <Field Name="WardOccupancy" Format="0.0%" Color="Red" Condition="WardOccupancy > 95"/>
+    </GroupHeader>
+    <Detail>
+      <Field Name="patient_name"/>
+      <Field Name="admission_date" Format="MM/DD/YYYY"/>
+      <Field Name="attending_physician"/>
+      <Field Name="LengthOfStay" Format="0 days"/>
+    </Detail>
+  </Sections>
+</Report>

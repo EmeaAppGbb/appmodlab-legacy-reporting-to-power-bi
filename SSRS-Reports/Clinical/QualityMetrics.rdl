@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSources>
+    <DataSource Name="SQLServerConnection">
+      <ConnectionProperties>
+        <DataProvider>SQL</DataProvider>
+        <ConnectString>Data Source=.;Initial Catalog=ClearwaterHealth</ConnectString>
+      </ConnectionProperties>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="QualityMetricsData">
+      <Query>
+        <DataSourceName>SQLServerConnection</DataSourceName>
+        <CommandText>
+          SELECT metric_name, actual_value, target_value, 
+                 CASE WHEN actual_value >= target_value THEN 'Green'
+                      WHEN actual_value >= target_value * 0.9 THEN 'Yellow'
+                      ELSE 'Red' END AS status_color
+          FROM dbo.cms_quality_metrics
+          WHERE reporting_period = @Period
+        </CommandText>
+        <QueryParameters>
+          <QueryParameter Name="@Period">
+            <Value>=Parameters!Period.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+      </Query>
+    </DataSet>
+  </DataSets>
+  <ReportParameters>
+    <ReportParameter Name="Period">
+      <DataType>String</DataType>
+      <Prompt>Reporting Period</Prompt>
+    </ReportParameter>
+  </ReportParameters>
+  <Body>
+    <ReportItems>
+      <Tablix Name="MetricsTable">
+        <TablixBody>
+          <TablixRows>
+            <TablixRow>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="MetricName">
+                      <Value>=Fields!metric_name.Value</Value>
+                      <Style>
+                        <BackgroundColor>=IIF(Fields!status_color.Value = "Green", "LightGreen", 
+                                          IIF(Fields!status_color.Value = "Yellow", "Yellow", "LightCoral"))</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+      </Tablix>
+    </ReportItems>
+  </Body>
+</Report>

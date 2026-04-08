@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSources>
+    <DataSource Name="SQLServerConnection">
+      <ConnectionProperties>
+        <DataProvider>SQL</DataProvider>
+        <ConnectString>Data Source=.;Initial Catalog=ClearwaterHealth</ConnectString>
+      </ConnectionProperties>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="DailyRevenueData">
+      <Query>
+        <DataSourceName>SQLServerConnection</DataSourceName>
+        <CommandText>
+          EXEC dbo.usp_GetDailyRevenue @ReportDate
+        </CommandText>
+        <QueryParameters>
+          <QueryParameter Name="@ReportDate">
+            <Value>=Parameters!ReportDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+      </Query>
+      <Fields>
+        <Field Name="Department">
+          <DataField>department_name</DataField>
+        </Field>
+        <Field Name="ChargesAmount">
+          <DataField>charges_amount</DataField>
+        </Field>
+        <Field Name="PaymentsAmount">
+          <DataField>payments_amount</DataField>
+        </Field>
+        <Field Name="NetRevenue">
+          <DataField>net_revenue</DataField>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportParameters>
+    <ReportParameter Name="ReportDate">
+      <DataType>DateTime</DataType>
+      <Prompt>Report Date</Prompt>
+      <DefaultValue>
+        <Values>
+          <Value>=Today()</Value>
+        </Values>
+      </DefaultValue>
+    </ReportParameter>
+  </ReportParameters>
+  <Body>
+    <ReportItems>
+      <Tablix Name="RevenueTable">
+        <TablixBody>
+          <TablixColumns>
+            <TablixColumn><Width>2in</Width></TablixColumn>
+            <TablixColumn><Width>1.5in</Width></TablixColumn>
+            <TablixColumn><Width>1.5in</Width></TablixColumn>
+            <TablixColumn><Width>1.5in</Width></TablixColumn>
+          </TablixColumns>
+          <TablixRows>
+            <TablixRow>
+              <TablixCells>
+                <TablixCell><CellContents><Textbox Name="Department"><Value>=Fields!Department.Value</Value></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Charges"><Value>=Fields!ChargesAmount.Value</Value><Format>$#,##0.00</Format></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="Payments"><Value>=Fields!PaymentsAmount.Value</Value><Format>$#,##0.00</Format></Textbox></CellContents></TablixCell>
+                <TablixCell><CellContents><Textbox Name="NetRev"><Value>=Fields!NetRevenue.Value</Value><Format>$#,##0.00</Format></Textbox></CellContents></TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+      </Tablix>
+    </ReportItems>
+  </Body>
+</Report>

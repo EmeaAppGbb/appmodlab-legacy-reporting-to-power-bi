@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ReportSubscriptions>
+  <Subscription>
+    <ReportName>Daily Revenue</ReportName>
+    <Schedule>Daily at 7:00 AM</Schedule>
+    <Format>PDF</Format>
+    <Recipients>
+      <Email>cfo@clearwaterhealth.org</Email>
+      <Email>finance-team@clearwaterhealth.org</Email>
+    </Recipients>
+    <Parameters>
+      <Parameter Name="ReportDate" Value="=Today()-1"/>
+    </Parameters>
+  </Subscription>
+  <Subscription>
+    <ReportName>Quality Metrics</ReportName>
+    <Schedule>Monthly on 1st at 6:00 AM</Schedule>
+    <Format>Excel</Format>
+    <Recipients>
+      <Email>quality-director@clearwaterhealth.org</Email>
+      <Email>compliance@clearwaterhealth.org</Email>
+    </Recipients>
+  </Subscription>
+  <Subscription>
+    <ReportName>Patient Census</ReportName>
+    <Schedule>Daily at 5:00 AM, 12:00 PM, 8:00 PM</Schedule>
+    <Format>PDF</Format>
+    <Recipients>
+      <Email>nursing-supervisors@clearwaterhealth.org</Email>
+    </Recipients>
+  </Subscription>
+</ReportSubscriptions>
