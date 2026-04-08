@@ -1,11 +1,19 @@
 ---
-title: "Legacy Reporting to Power BI"
+title: "Legacy Reports to Power BI"
+description: "Modernize Crystal Reports and SSRS to Power BI with DAX measures and interactive dashboards"
+authors: ["marconsilva"]
 category: "Data Modernization"
-priority: "P3"
+industry: "Healthcare & Life Sciences"
+services: ["Power BI", "Azure SQL Database"]
 languages: ["SQL", "DAX", "M"]
-duration: "4-6 hours"
-repository: "appmodlab-legacy-reporting-to-power-bi"
-organization: "EmeaAppGbb"
+frameworks: [".NET"]
+modernizationTools: []
+agenticTools: []
+tags: ["power-bi", "crystal-reports", "ssrs", "dax", "reporting", "business-intelligence"]
+extensions: ["github.copilot"]
+thumbnail: ""
+video: ""
+version: "1.0.0"
 ---
 
 # Legacy Reporting to Power BI
