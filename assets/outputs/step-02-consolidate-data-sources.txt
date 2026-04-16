@@ -1,0 +1,103 @@
+ÔùÅ Read vw_PatientCensus.sql
+  Ôöé SQL\Views\vw_PatientCensus.sql
+  Ôöö 14 lines read
+
+ÔùÅ Read usp_GetDailyRevenue.sql
+  Ôöé SQL\StoredProcedures\usp_GetDailyRevenue.sql
+  Ôöö 20 lines read
+
+ÔùÅ Read fn_CalculateReadmissionRisk.sql
+  Ôöé SQL\Functions\fn_CalculateReadmissionRisk.sql
+  Ôöö 37 lines read
+
+ÔùÅ List directory SQL
+  Ôöö 3 files found
+
+Now let me also check existing structures for more context.
+
+ÔùÅ List directory DataSources
+  Ôöö 2 files found
+
+ÔùÅ List directory PowerBI
+  Ôöö 2 files found
+
+ÔùÅ Search (glob)
+  Ôöé "SSRS-Reports/**/*"
+  Ôöö 2 files found
+
+ÔùÅ Read OracleConnection.config
+  Ôöé DataSources\OracleConnection.config
+  Ôöö 11 lines read
+
+ÔùÅ Read SQLServerConnection.config
+  Ôöé DataSources\SQLServerConnection.config
+  Ôöö 9 lines read
+
+ÔùÅ Read MigrationPlan.md
+  Ôöé PowerBI\MigrationPlan.md
+  Ôöö 173 lines read
+
+ÔùÅ Read ReportInventory.md
+  Ôöé PowerBI\ReportInventory.md
+  Ôöö 135 lines read
+
+Now I have full context. Let me create all the consolidated SQL views.
+
+ÔùÅ Create ConsolidatedSQL directory (shell)
+  Ôöé New-Item -ItemType Directory -Path "C:\code\gbb\labs\appmodlab-legacy-report
+  Ôöé ing-to-power-bi\PowerBI\ConsolidatedSQL" -Force
+  Ôöö 6 lines...
+
+ÔùÅ Create vw_SurgicalOutcomes.sql +51
+  Ôöö PowerBI\ConsolidatedSQL\vw_SurgicalOutcomes.sql
+
+ÔùÅ Create vw_ConsolidatedPatientCensus.sql +53
+  Ôöö PowerBI\ConsolidatedSQL\vw_ConsolidatedPatientCensus.sql
+
+ÔùÅ Create vw_ReadmissionRisk.sql +67
+  Ôöö PowerBI\ConsolidatedSQL\vw_ReadmissionRisk.sql
+
+ÔùÅ Create vw_ConsolidatedRevenue.sql +46
+  Ôöö PowerBI\ConsolidatedSQL\vw_ConsolidatedRevenue.sql
+
+ÔùÅ Create 00-migration-script.sql +225
+  Ôöö PowerBI\ConsolidatedSQL\00-migration-script.sql
+
+ÔùÅ Create vw_QualityMetrics.sql +54
+  Ôöö PowerBI\ConsolidatedSQL\vw_QualityMetrics.sql
+
+Now let me verify the files and commit.
+
+ÔùÅ List directory PowerBI\ConsolidatedSQL
+  Ôöö 6 files found
+
+ÔùÅ Stage and check new files (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi && git add
+  Ôöé PowerBI/ConsolidatedSQL/ && git --no-pager diff --cached --stat
+  Ôöö 8 lines...
+
+ÔùÅ Commit consolidated SQL views (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi && git commit
+  Ôöé -m "Step 2: Add consolidated Azure SQL views for Power BI DirectQuery
+  Ôöé
+  Ôöé Create PowerBI/ConsolidatedSQL/ with 5 views + migration script that
+  Ôöé consolidate Oracle and SQL Server sources into a single Azure SQL target:ÔÇª
+  Ôöö 25 lines...
+
+Done. Created `PowerBI/ConsolidatedSQL/` with 6 files (490 lines):
+
+| File | Replaces | Key Enhancements |
+|------|----------|-----------------|
+| `vw_ConsolidatedPatientCensus.sql` | `vw_PatientCensus` + Crystal inline SQL | Per-patient LOS, windowed occupancy %, snapshot timestamp |
+| `vw_ConsolidatedRevenue.sql` | `usp_GetDailyRevenue` stored proc | View for DirectQuery; date filtering via Power BI slicers |
+| `vw_SurgicalOutcomes.sql` | Crystal sub-report pattern | Flattened join, complication flag, windowed complication rate |
+| `vw_QualityMetrics.sql` | SSRS inline CASE SQL | Green/Yellow/Red thresholds, variance %, sort order column |
+| `vw_ReadmissionRisk.sql` | `fn_CalculateReadmissionRisk` UDF | Inline CASE scoring (eliminates scalar UDF parallelism blocker) |
+| `00-migration-script.sql` | ÔÇö | Master script creating all 5 views in order |
+
+All views consolidate Oracle + SQL Server sources into a single Azure SQL target and are DirectQuery-compatible.
+
+
+Changes   +496 -0
+Requests  3 Premium (2m 13s)
+Tokens    Ôåæ 271.2k ÔÇó Ôåô 7.6k ÔÇó 229.1k (cached)
