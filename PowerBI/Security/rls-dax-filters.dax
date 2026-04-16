@@ -1,0 +1,167 @@
+// ============================================================================
+// Row-Level Security DAX Filter Expressions
+// Clearwater Health System — Power BI Migration
+// ============================================================================
+//
+// These DAX expressions define the RLS filters applied to each role in the
+// Power BI semantic model. They replace the legacy per-report security pattern
+// where SSRS used folder-based NTLM permissions and Crystal Reports relied on
+// client-side record selection formulas (transmitting all data to the client).
+//
+// LEGACY PATTERN (eliminated):
+//   SSRS:    usp_GetDailyRevenue returned ALL departments; security was enforced
+//            by SSRS folder permissions (e.g., /RevenueCycle/Cardiology/ folder
+//            restricted to DOMAIN\CardiologyManagers group).
+//   Crystal: PatientCensus.rpt used Oracle REPORTS_USER to fetch ALL patients,
+//            then applied client-side RecordSelectionFormula to filter by physician.
+//            This transmitted PHI for all patients over the network (HIPAA risk).
+//
+// NEW PATTERN (centralized):
+//   All security is enforced at the dataset level via DAX RLS roles. Filters
+//   propagate through the star schema relationships. Users are assigned to roles
+//   in Power BI Service, providing a single point of security management instead
+//   of maintaining permissions across 40+ individual reports.
+//
+// IMPORTANT: USERPRINCIPALNAME() returns the Azure AD UPN of the authenticated
+// user (e.g., jsmith@clearwaterhealth.org). This requires Azure AD authentication;
+// SQL authentication returns BLANK().
+// ============================================================================
+
+
+// ----------------------------------------------------------------------------
+// ROLE: DepartmentRole
+// ----------------------------------------------------------------------------
+// PURPOSE: Department managers and staff see only their department's data.
+//
+// LEGACY TRANSLATION:
+//   Before: SSRS folder /RevenueCycle/{DepartmentName}/ was permissioned to the
+//           corresponding AD group (e.g., CLEARWATER\ICU_Managers). The stored
+//           procedure usp_GetDailyRevenue had no user filtering — it returned
+//           all departments. Security was purely at the report delivery layer.
+//   After:  Single DAX filter on Departments table propagates through the star
+//           schema via department_id foreign key to Charges, Payments, and
+//           Adjustments fact tables.
+//
+// APPLIED TO TABLE: Departments
+// PROPAGATION PATH: Departments → Charges → Payments
+//                   Departments → Charges → Adjustments
+// ----------------------------------------------------------------------------
+
+// Direct UPN match — use when department_name stores the user's UPN
+// (suitable for test/demo environments)
+[department_name] = USERPRINCIPALNAME()
+
+// Production alternative — use SecurityUserMapping lookup table when
+// department names (e.g., "Cardiology", "ICU") don't match UPNs directly
+// LOOKUPVALUE(
+//     SecurityUserMapping[department_name],
+//     SecurityUserMapping[user_principal_name],
+//     USERPRINCIPALNAME()
+// ) = [department_name]
+
+
+// ----------------------------------------------------------------------------
+// ROLE: PhysicianRole
+// ----------------------------------------------------------------------------
+// PURPOSE: Attending physicians see only their own patients' clinical data.
+//
+// LEGACY TRANSLATION:
+//   Before: Crystal Reports PatientCensus.rpt connected to Oracle as REPORTS_USER
+//           (shared service account) and fetched ALL patient rows. A client-side
+//           RecordSelectionFormula {patients.attending_physician} = CurrentUser
+//           filtered the display — but all data was already transmitted to the
+//           client workstation, exposing PHI for all patients (HIPAA risk).
+//           SurgicalOutcomes.rpt had no physician filtering at all.
+//   After:  DAX RLS filter on Patients table ensures only matching rows leave
+//           the server. Filter propagates through relationships to Surgeries
+//           and Complications tables. No PHI for other physicians' patients
+//           is ever transmitted to the client.
+//
+// APPLIED TO TABLE: Patients
+// PROPAGATION PATH: Patients → Surgeries → Complications
+//                   Patients → Wards (via current_ward_id)
+// HIPAA IMPROVEMENT: Server-side filtering eliminates PHI transmission risk
+// ----------------------------------------------------------------------------
+
+// Match attending_physician column to the authenticated user's UPN
+[attending_physician] = USERPRINCIPALNAME()
+
+// Alternative using LOOKUPVALUE for indirect mapping — use when the
+// attending_physician column stores physician IDs rather than email addresses
+// LOOKUPVALUE(
+//     PhysicianDirectory[email],
+//     PhysicianDirectory[physician_id],
+//     [attending_physician]
+// ) = USERPRINCIPALNAME()
+
+// Extended filter — if a physician should also see patients they have
+// performed surgery on (not just attending patients):
+// [attending_physician] = USERPRINCIPALNAME()
+// || COUNTROWS(
+//     FILTER(
+//         RELATEDTABLE(Surgeries),
+//         Surgeries[surgeon_id] = USERPRINCIPALNAME()
+//     )
+// ) > 0
+
+
+// ----------------------------------------------------------------------------
+// ROLE: ExecutiveRole
+// ----------------------------------------------------------------------------
+// PURPOSE: Executive leadership has unrestricted access to all data.
+//
+// LEGACY TRANSLATION:
+//   Before: SSRS — Domain Admins and Executive AD groups were granted access
+//           to all report folders. Crystal Reports — executives accessed the
+//           viewer application directly with no record selection restrictions.
+//           Each new report required adding executive groups to folder ACLs.
+//   After:  No DAX filter expression is defined. Users assigned to
+//           ExecutiveRole see all rows in all tables. This is managed in a
+//           single location (Power BI Service role assignments) rather than
+//           across dozens of report folders and Crystal viewer permissions.
+//
+// APPLIED TO TABLE: (none — no filter expression)
+// PROPAGATION PATH: N/A — all data visible
+// ----------------------------------------------------------------------------
+
+// No filter expression needed for ExecutiveRole.
+// In Power BI Desktop "Manage Roles", create the role with no table filters.
+// Assign users to ExecutiveRole in Power BI Service dataset settings.
+//
+// IMPORTANT: Users NOT assigned to ANY role will see NO data. ExecutiveRole
+// ensures executives are explicitly granted full access rather than relying
+// on the absence of restrictions.
+
+
+// ============================================================================
+// VALIDATION QUERIES
+// ============================================================================
+// Use these DAX queries in DAX Studio or Power BI "View as Role" to validate
+// that RLS filters produce the expected results.
+// ============================================================================
+
+// Test DepartmentRole — verify only one department's charges are visible
+// EVALUATE
+// CALCULATETABLE(
+//     SUMMARIZECOLUMNS(
+//         Departments[department_name],
+//         "TotalCharges", [Total Charges]
+//     ),
+//     USERELATIONSHIP(Charges[department_id], Departments[department_id])
+// )
+
+// Test PhysicianRole — verify only the physician's patients are visible
+// EVALUATE
+// CALCULATETABLE(
+//     SUMMARIZECOLUMNS(
+//         Patients[attending_physician],
+//         "PatientCount", COUNTROWS(Patients)
+//     )
+// )
+
+// Test ExecutiveRole — verify all departments and patients are visible
+// EVALUATE
+// SUMMARIZECOLUMNS(
+//     Departments[department_name],
+//     "DeptCount", COUNTROWS(Departments)
+// )

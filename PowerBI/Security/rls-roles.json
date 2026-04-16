@@ -1,0 +1,114 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/fabric/json-schemas/rls-roles.json",
+  "description": "Row-Level Security role definitions for Clearwater Health Power BI semantic model. Replaces legacy per-report SSRS folder-based permissions and Crystal Reports client-side security with centralized dataset-level RLS.",
+  "roles": [
+    {
+      "name": "DepartmentRole",
+      "description": "Department managers and staff see only financial and operational data for their assigned department. Replaces SSRS folder permissions on RevenueCycle reports where each department folder was individually permissioned.",
+      "tablePermissions": [
+        {
+          "table": "Departments",
+          "filterExpression": "[department_name] = USERPRINCIPALNAME()",
+          "explanation": "Filters the Departments dimension table so users only see rows matching their Azure AD UPN. Because Departments has a one-to-many relationship to Charges (via department_id), this filter propagates through the star schema to restrict Charges, Payments, and Adjustments automatically."
+        }
+      ],
+      "affectedTables": [
+        "Departments",
+        "Charges",
+        "Payments",
+        "Adjustments"
+      ],
+      "affectedMeasures": [
+        "Total Revenue",
+        "Net Revenue",
+        "Total Charges",
+        "Total Payments",
+        "Total Adjustments"
+      ],
+      "legacyEquivalent": {
+        "system": "SSRS",
+        "mechanism": "Folder-based permissions on /RevenueCycle/ folder tree. Each department had a subfolder with NTLM group-based access.",
+        "storedProcedure": "usp_GetDailyRevenue (no user filtering — returned all departments)"
+      }
+    },
+    {
+      "name": "PhysicianRole",
+      "description": "Attending physicians see only clinical data for their own patients. Replaces Crystal Reports client-side filtering where the Oracle REPORTS_USER account returned all patients and client-side record selection formulas restricted visibility.",
+      "tablePermissions": [
+        {
+          "table": "Patients",
+          "filterExpression": "LOOKUPVALUE(Patients[attending_physician], Patients[attending_physician], USERPRINCIPALNAME()) = Patients[attending_physician]",
+          "explanation": "Filters the Patients table so physicians only see patients where attending_physician matches their Azure AD UPN. This filter propagates through relationships to Surgeries, Complications, and ward-level census data. Uses LOOKUPVALUE to validate the user email against the attending_physician column.",
+          "simplifiedExpression": "[attending_physician] = USERPRINCIPALNAME()"
+        }
+      ],
+      "affectedTables": [
+        "Patients",
+        "Surgeries",
+        "Complications",
+        "Wards"
+      ],
+      "affectedMeasures": [
+        "Total Surgeries",
+        "Complication Rate",
+        "Readmission Risk Score",
+        "Current Patient Count",
+        "Average Length of Stay"
+      ],
+      "legacyEquivalent": {
+        "system": "Crystal Reports",
+        "mechanism": "PatientCensus.rpt used Oracle REPORTS_USER to pull all patients; client-side record selection formula filtered by physician. No server-side enforcement existed — all patient data was transmitted to the client.",
+        "securityGap": "Crystal Reports transmitted all patient rows to the client before filtering. Power BI RLS enforces filtering server-side, improving HIPAA compliance."
+      }
+    },
+    {
+      "name": "ExecutiveRole",
+      "description": "Executive leadership (CFO, CEO, Quality Director, Compliance Officers) have unrestricted access to all data across all departments, patients, and quality metrics. Replaces the legacy pattern where executives had folder-level access to all SSRS report folders and direct Crystal Reports viewer access.",
+      "tablePermissions": [],
+      "affectedTables": [
+        "Departments",
+        "Charges",
+        "Payments",
+        "Adjustments",
+        "Patients",
+        "Surgeries",
+        "Complications",
+        "Wards",
+        "CmsQualityMetrics",
+        "Calendar"
+      ],
+      "affectedMeasures": [
+        "Total Revenue",
+        "Net Revenue",
+        "Total Surgeries",
+        "Complication Rate",
+        "Occupancy Percent",
+        "Readmission Risk Score"
+      ],
+      "legacyEquivalent": {
+        "system": "SSRS + Crystal Reports",
+        "mechanism": "SSRS: Domain Admins group granted access to all report folders. Crystal: Direct access to Crystal Reports viewer application with no record selection restrictions.",
+        "note": "No filter expression needed — empty tablePermissions array means no RLS restrictions apply."
+      }
+    }
+  ],
+  "securityUserMappingTable": {
+    "description": "Optional lookup table for environments where USERPRINCIPALNAME() does not directly match the department_name or attending_physician column values. Create a SecurityUserMapping table in the semantic model to map UPNs to security attributes.",
+    "schema": {
+      "tableName": "SecurityUserMapping",
+      "columns": [
+        { "name": "user_principal_name", "type": "string", "description": "Azure AD UPN (e.g., jsmith@clearwaterhealth.org)" },
+        { "name": "department_name", "type": "string", "description": "Mapped department for DepartmentRole" },
+        { "name": "physician_id", "type": "string", "description": "Mapped physician identifier for PhysicianRole" },
+        { "name": "role_type", "type": "string", "description": "Role assignment: Department, Physician, or Executive" }
+      ]
+    },
+    "daxFilterWithMapping": "LOOKUPVALUE(SecurityUserMapping[department_name], SecurityUserMapping[user_principal_name], USERPRINCIPALNAME()) = [department_name]"
+  },
+  "deploymentNotes": {
+    "powerBIDesktop": "Define roles in Modeling tab → Manage Roles. Paste DAX filter expressions from rls-dax-filters.dax.",
+    "powerBIService": "After publishing, assign Azure AD users/groups to roles in Dataset Settings → Row-Level Security.",
+    "testingApproach": "Use 'View as Role' in Power BI Desktop and 'Test as Role' in Power BI Service. See test-matrix.md for detailed test cases.",
+    "azureADRequirement": "RLS with USERPRINCIPALNAME() requires Azure AD authentication. SQL authentication will return BLANK() for USERPRINCIPALNAME()."
+  }
+}
