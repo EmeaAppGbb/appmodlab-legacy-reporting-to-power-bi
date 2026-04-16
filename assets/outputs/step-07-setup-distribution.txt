@@ -1,0 +1,94 @@
+ÔùÅ List directory .
+  Ôöö 11 files found
+
+ÔùÅ Search (glob)
+  Ôöé "Subscriptions/**/*"
+  Ôöö 1 file found
+
+ÔùÅ Search (glob)
+  Ôöé "PowerBI/**/*"
+  Ôöö 25 files found
+
+ÔùÅ Read SubscriptionConfig.xml
+  Ôöé Subscriptions\SubscriptionConfig.xml
+  Ôöö 32 lines read
+
+ÔùÅ Read DailyRevenue.json
+  Ôöé PowerBI\Reports\DailyRevenue.json
+  Ôöö 283 lines read
+
+ÔùÅ Read QualityMetrics.json
+  Ôöé PowerBI\Reports\QualityMetrics.json
+  Ôöö 308 lines read
+
+ÔùÅ Read rls-roles.json
+  Ôöé PowerBI\Security\rls-roles.json
+  Ôöö 114 lines read
+
+ÔùÅ Read PatientCensus.json
+  Ôöé PowerBI\Reports\PatientCensus.json
+  Ôöö 192 lines read
+
+ÔùÅ Read ReportInventory.md
+  Ôöé PowerBI\ReportInventory.md
+  Ôöö 135 lines read
+
+ÔùÅ Read SurgicalOutcomes.json
+  Ôöé PowerBI\Reports\SurgicalOutcomes.json
+  Ôöö 272 lines read
+
+Now I have full context. Let me also check the security role mappings and paginated reports for completeness.
+
+ÔùÅ Read MigrationGuide.md
+  Ôöé PowerBI\PaginatedReports\MigrationGuide.md
+  Ôöö L1:40 (40 lines read)
+
+ÔùÅ Read role-mappings.md
+  Ôöé PowerBI\Security\role-mappings.md
+  Ôöö 234 lines read
+
+Now I have all the context needed. Let me create the four Distribution files.
+
+ÔùÅ Create Distribution directory (shell)
+  Ôöé New-Item -ItemType Directory -Path "C:\code\gbb\labs\appmodlab-legacy-report
+  Ôöé ing-to-power-bi\PowerBI\Distribution" -Force
+  Ôöö 4 lines...
+
+ÔùÅ Create workspace-config.json +176
+  Ôöö PowerBI\Distribution\workspace-config.json
+
+ÔùÅ Create subscription-migration.md +259
+  Ôöö PowerBI\Distribution\subscription-migration.md
+
+ÔùÅ Create app-config.json +210
+  Ôöö PowerBI\Distribution\app-config.json
+
+ÔùÅ Create deployment-pipeline.json +295
+  Ôöö PowerBI\Distribution\deployment-pipeline.json
+
+Now let me commit the changes:
+
+ÔùÅ Stage and check Distribution files (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi && git add
+  Ôöé PowerBI/Distribution/ && git status
+  Ôöö 5 lines...
+
+ÔùÅ Commit Distribution files (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi && git commit
+  Ôöé -m "Step 7: Set up Power BI distribution configuration
+  Ôöé
+  Ôöé Add PowerBI/Distribution/ with workspace, app, subscription, and
+  Ôöé deployment pipeline configurations:ÔÇª
+  Ôöö 27 lines...
+
+Done. Created `PowerBI/Distribution/` with 4 files:
+
+1. **workspace-config.json** ÔÇö Workspace with Admin/Member/Contributor/Viewer roles, mapping legacy SSRS folder permissions and email groups to workspace roles
+2. **app-config.json** ÔÇö App navigation organized by audience (Financial, Clinical, Regulatory, Executive) with report access per audience group
+3. **subscription-migration.md** ÔÇö Maps all 3 legacy subscriptions (Daily Revenue ÔåÆ CFO daily, Quality Metrics ÔåÆ Compliance monthly, Patient Census ÔåÆ Nursing 3├ù/day) with dataset refresh alignment, mobile push alerts, and Power Automate escalation flows
+4. **deployment-pipeline.json** ÔÇö Dev ÔåÆ Test ÔåÆ Prod pipeline with quality gates, data source remapping rules per environment, and CI/CD automation notes
+
+
+Changes   +940 -0
+Requests  3 Premium (4m 2s)
+Tokens    Ôåæ 383.7k ÔÇó Ôåô 13.2k ÔÇó 311.9k (cached)
