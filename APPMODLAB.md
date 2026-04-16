@@ -52,6 +52,12 @@ The Clearwater Health System reporting infrastructure consists of:
 - Crystal Reports Runtime on client PCs for interactive viewing
 - SSRS Report Server with folder-based security
 
+The following rendering shows the legacy data source connections and email subscription schedules that drive report distribution today:
+
+[View: Data Sources and Subscription Schedules](assets/screenshots/06-data-sources-and-subscriptions.html)
+
+*Open the HTML file in a browser to view the syntax-highlighted rendering.*
+
 **Key Anti-Patterns:**
 - Mixed report platforms requiring different skill sets
 - Stored procedures embedding business logic
@@ -87,6 +93,18 @@ The Clearwater Health System reporting infrastructure consists of:
    - `DailyRevenue.rdl` - Daily revenue dashboard
    - `QualityMetrics.rdl` - CMS quality measures
 
+   The Crystal Report for Patient Census uses embedded Oracle SQL with `@LengthOfStay` and `@WardOccupancy` formulas, and conditional red formatting above 95% occupancy:
+
+   [View: Crystal Report — Patient Census](assets/screenshots/01-crystal-patient-census.html)
+
+   *Open the HTML file in a browser to view the syntax-highlighted rendering.*
+
+   The Surgical Outcomes report demonstrates the sub-report anti-pattern (N+1 queries) with date-range parameters and a `@ComplicationRate` formula:
+
+   [View: Crystal Report — Surgical Outcomes](assets/screenshots/02-crystal-surgical-outcomes.html)
+
+   *Open the HTML file in a browser to view the syntax-highlighted rendering.*
+
 3. Identify complexity factors:
    - Crystal formulas (WhilePrintingRecords, RunningTotal)
    - SSRS expressions and custom code
@@ -101,6 +119,12 @@ The Clearwater Health System reporting infrastructure consists of:
    - Stored procedures in `SQL/StoredProcedures/`
    - Views in `SQL/Views/`
    - Functions in `SQL/Functions/`
+
+   The SQL objects powering the reports — `usp_GetDailyRevenue` (stored procedure), `vw_PatientCensus` (view), and `fn_CalculateReadmissionRisk` (scalar function) — contain the business logic that will move into DAX measures:
+
+   [View: SQL Stored Procedures, Views, and Functions](assets/screenshots/05-sql-stored-proc-view-function.html)
+
+   *Open the HTML file in a browser to view the syntax-highlighted rendering.*
 
 2. Create consolidated views:
    ```sql
@@ -157,10 +181,22 @@ CALCULATE(
    - Implement drill-through to detail
    - Add interactive filters
 
+   The SSRS Daily Revenue definition calls `usp_GetDailyRevenue` and uses a 4-column Tablix with currency formatting. This is the report to replicate first in Power BI:
+
+   [View: SSRS Daily Revenue Report Definition](assets/screenshots/03-ssrs-daily-revenue.html)
+
+   *Open the HTML file in a browser to view the syntax-highlighted rendering.*
+
 3. **Quality Metrics Report:**
    - Create KPI visuals for each metric
    - Implement status indicators (Green/Yellow/Red)
    - Add trend sparklines
+
+   The SSRS Quality Metrics report uses inline SQL with CASE-based status coloring and IIF conditional background expressions — patterns that map to DAX conditional formatting:
+
+   [View: SSRS Quality Metrics Report Definition](assets/screenshots/04-ssrs-quality-metrics.html)
+
+   *Open the HTML file in a browser to view the syntax-highlighted rendering.*
 
 ### Step 5: Implement RLS
 
