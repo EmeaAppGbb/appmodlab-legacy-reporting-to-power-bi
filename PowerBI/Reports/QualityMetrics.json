@@ -1,0 +1,308 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.0.0/schema.json",
+  "_comment": "Power BI report definition — converts SSRS-Reports/Clinical/QualityMetrics.rdl",
+  "_migrationNotes": {
+    "sourceFile": "SSRS-Reports/Clinical/QualityMetrics.rdl",
+    "sourcePlatform": "SQL Server Reporting Services 2016",
+    "sourceDataSource": "SQL Server — CLEARWATER-SQL01 / ClearwaterHealth",
+    "targetDataSource": "Azure SQL — ClearwaterHealth (via SemanticModel)",
+    "keyChanges": [
+      "SSRS Tablix replaced with KPI card visuals per metric — one card per CMS quality metric",
+      "SSRS IIF conditional formatting replaced by Power BI rules-based conditional formatting on StatusColor column",
+      "SQL CASE expression (Green/Yellow/Red) replaced by DAX calculated column CmsQualityMetrics[StatusColor]",
+      "SSRS @Period parameter replaced by slicer on CmsQualityMetrics[reporting_period]",
+      "Added trend sparklines (new — SSRS original had no trending)",
+      "Added Quality Score Percent KPI card (new aggregate measure)"
+    ]
+  },
+  "datasetReference": {
+    "byPath": {
+      "path": "../SemanticModel"
+    },
+    "byConnection": null
+  },
+  "reportPages": [
+    {
+      "name": "QualityDashboard",
+      "displayName": "Quality Metrics",
+      "displayOption": "FitToPage",
+      "width": 1280,
+      "height": 720,
+      "visuals": [
+        {
+          "name": "PageTitle",
+          "visualType": "textbox",
+          "position": {
+            "x": 20,
+            "y": 10,
+            "width": 600,
+            "height": 50
+          },
+          "content": "CMS Quality Metrics Dashboard",
+          "style": {
+            "fontSize": 20,
+            "fontWeight": "bold",
+            "fontColor": "#252423"
+          }
+        },
+        {
+          "name": "PeriodSlicer",
+          "visualType": "slicer",
+          "position": {
+            "x": 700,
+            "y": 10,
+            "width": 250,
+            "height": 50
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "CmsQualityMetrics[reporting_period]",
+                "_comment": "Replaces SSRS parameter @Period (DataType=String). SSRS: =Parameters!Period.Value → Power BI: reporting_period slicer"
+              }
+            ]
+          },
+          "slicerType": "dropdown"
+        },
+        {
+          "name": "QualityScoreKPI",
+          "visualType": "card",
+          "position": {
+            "x": 980,
+            "y": 10,
+            "width": 280,
+            "height": 50
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Quality Score Percent",
+                "formatString": "0.0%"
+              }
+            ]
+          },
+          "title": "Overall Quality Score"
+        },
+        {
+          "name": "MetricsSummaryCards",
+          "visualType": "multiRowCard",
+          "_comment": "Summary cards showing count of Green/Yellow/Red metrics at a glance",
+          "position": {
+            "x": 20,
+            "y": 70,
+            "width": 1240,
+            "height": 80
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Metrics Meeting Target",
+                "displayName": "✓ Meeting Target (Green)"
+              },
+              {
+                "measure": "Metrics At Warning",
+                "displayName": "⚠ Warning (Yellow)"
+              },
+              {
+                "measure": "Metrics Below Target",
+                "displayName": "✗ Below Target (Red)"
+              }
+            ]
+          }
+        },
+        {
+          "name": "MetricsKPITable",
+          "visualType": "table",
+          "_comment": "Replaces SSRS MetricsTable Tablix — each row is a CMS quality metric with KPI status indicator",
+          "position": {
+            "x": 20,
+            "y": 170,
+            "width": 750,
+            "height": 400
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "CmsQualityMetrics[metric_name]",
+                "displayName": "Metric"
+              },
+              {
+                "column": "CmsQualityMetrics[actual_value]",
+                "displayName": "Actual",
+                "formatString": "0.0"
+              },
+              {
+                "column": "CmsQualityMetrics[target_value]",
+                "displayName": "Target",
+                "formatString": "0.0"
+              },
+              {
+                "column": "CmsQualityMetrics[TargetVariancePct]",
+                "displayName": "Variance %",
+                "formatString": "+0.0%;-0.0%"
+              },
+              {
+                "column": "CmsQualityMetrics[StatusColor]",
+                "displayName": "Status"
+              }
+            ]
+          },
+          "conditionalFormatting": [
+            {
+              "_comment": "Replaces SSRS IIF expression: =IIF(Fields!status_color.Value = 'Green', 'LightGreen', IIF(Fields!status_color.Value = 'Yellow', 'Yellow', 'LightCoral'))",
+              "target": {
+                "column": "CmsQualityMetrics[StatusColor]"
+              },
+              "type": "cellBackground",
+              "rules": [
+                {
+                  "inputValue": "Green",
+                  "formatting": {
+                    "backgroundColor": "#90EE90",
+                    "foregroundColor": "#0B6623",
+                    "fontWeight": "bold"
+                  },
+                  "_comment": "SSRS: LightGreen background when status_color = 'Green'"
+                },
+                {
+                  "inputValue": "Yellow",
+                  "formatting": {
+                    "backgroundColor": "#FFFF00",
+                    "foregroundColor": "#8B8000",
+                    "fontWeight": "bold"
+                  },
+                  "_comment": "SSRS: Yellow background when status_color = 'Yellow'"
+                },
+                {
+                  "inputValue": "Red",
+                  "formatting": {
+                    "backgroundColor": "#F08080",
+                    "foregroundColor": "#8B0000",
+                    "fontWeight": "bold"
+                  },
+                  "_comment": "SSRS: LightCoral background when status_color = 'Red'"
+                }
+              ]
+            },
+            {
+              "_comment": "Apply row-level background tint based on status for full-row visibility",
+              "target": {
+                "applyTo": "row"
+              },
+              "type": "rowBackground",
+              "rules": [
+                {
+                  "column": "CmsQualityMetrics[StatusColor]",
+                  "inputValue": "Green",
+                  "formatting": {
+                    "backgroundColor": "#F0FFF0"
+                  }
+                },
+                {
+                  "column": "CmsQualityMetrics[StatusColor]",
+                  "inputValue": "Yellow",
+                  "formatting": {
+                    "backgroundColor": "#FFFDE7"
+                  }
+                },
+                {
+                  "column": "CmsQualityMetrics[StatusColor]",
+                  "inputValue": "Red",
+                  "formatting": {
+                    "backgroundColor": "#FFF0F0"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "TrendSparklines",
+          "visualType": "lineChart",
+          "_comment": "Trend sparklines — new capability not in SSRS original. Shows metric values over multiple reporting periods.",
+          "position": {
+            "x": 790,
+            "y": 170,
+            "width": 470,
+            "height": 400
+          },
+          "dataRoles": {
+            "Axis": [
+              {
+                "column": "CmsQualityMetrics[reporting_period]"
+              }
+            ],
+            "Legend": [
+              {
+                "column": "CmsQualityMetrics[metric_name]"
+              }
+            ],
+            "Values": [
+              {
+                "column": "CmsQualityMetrics[actual_value]",
+                "displayName": "Actual Value"
+              }
+            ],
+            "ReferenceLines": [
+              {
+                "column": "CmsQualityMetrics[target_value]",
+                "displayName": "Target",
+                "style": "dashed",
+                "color": "#888888"
+              }
+            ]
+          },
+          "title": "Metric Trends Over Time",
+          "sparklineConfig": {
+            "_comment": "When used inside a matrix or table, each metric row gets an inline sparkline showing its trend. Configure via Analytics pane → Sparklines in Power BI Desktop."
+          }
+        },
+        {
+          "name": "GaugeVariance",
+          "visualType": "gauge",
+          "position": {
+            "x": 20,
+            "y": 590,
+            "width": 400,
+            "height": 120
+          },
+          "dataRoles": {
+            "Value": [
+              {
+                "measure": "Quality Score Percent"
+              }
+            ],
+            "TargetValue": 100,
+            "MinValue": 0,
+            "MaxValue": 100
+          },
+          "conditionalFormatting": [
+            {
+              "rules": [
+                {
+                  "condition": { "operator": "greaterThanOrEqual", "value": 80 },
+                  "formatting": { "fillColor": "#90EE90" }
+                },
+                {
+                  "condition": { "operator": "greaterThanOrEqual", "value": 60 },
+                  "formatting": { "fillColor": "#FFFF00" }
+                },
+                {
+                  "condition": { "operator": "lessThan", "value": 60 },
+                  "formatting": { "fillColor": "#F08080" }
+                }
+              ]
+            }
+          ],
+          "title": "Quality Score Gauge"
+        }
+      ]
+    }
+  ],
+  "theme": {
+    "name": "ClearwaterHealth",
+    "foreground": "#252423",
+    "background": "#FFFFFF",
+    "tableAccent": "#0078D4"
+  }
+}

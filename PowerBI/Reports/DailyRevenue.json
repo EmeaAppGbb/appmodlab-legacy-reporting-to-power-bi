@@ -1,0 +1,283 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.0.0/schema.json",
+  "_comment": "Power BI report definition — converts SSRS-Reports/RevenueCycle/DailyRevenue.rdl",
+  "_migrationNotes": {
+    "sourceFile": "SSRS-Reports/RevenueCycle/DailyRevenue.rdl",
+    "sourcePlatform": "SQL Server Reporting Services 2016",
+    "sourceDataSource": "SQL Server — CLEARWATER-SQL01 / ClearwaterHealth",
+    "targetDataSource": "Azure SQL — ClearwaterHealth (via SemanticModel)",
+    "keyChanges": [
+      "SSRS Tablix replaced with Power BI table visual with 4 columns",
+      "Stored procedure usp_GetDailyRevenue logic replaced by DAX measures (Total Revenue, Total Payments, Net Revenue)",
+      "SSRS @ReportDate parameter replaced by Calendar date slicer",
+      "Currency format $#,##0.00 preserved from SSRS field formatting",
+      "Added drill-through to department detail page (new capability)",
+      "Added Running Total Revenue measure (replaces Crystal RunningTotal)"
+    ]
+  },
+  "datasetReference": {
+    "byPath": {
+      "path": "../SemanticModel"
+    },
+    "byConnection": null
+  },
+  "reportPages": [
+    {
+      "name": "DailyRevenueSummary",
+      "displayName": "Daily Revenue",
+      "displayOption": "FitToPage",
+      "width": 1280,
+      "height": 720,
+      "visuals": [
+        {
+          "name": "PageTitle",
+          "visualType": "textbox",
+          "position": {
+            "x": 20,
+            "y": 10,
+            "width": 600,
+            "height": 50
+          },
+          "content": "Daily Revenue Report",
+          "style": {
+            "fontSize": 20,
+            "fontWeight": "bold",
+            "fontColor": "#252423"
+          }
+        },
+        {
+          "name": "DateSlicer",
+          "visualType": "slicer",
+          "position": {
+            "x": 20,
+            "y": 60,
+            "width": 300,
+            "height": 50
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "Calendar[Date]",
+                "_comment": "Replaces SSRS parameter @ReportDate (DataType=DateTime, Default=Today()). SSRS: =Parameters!ReportDate.Value → Power BI: Calendar date slicer"
+              }
+            ]
+          },
+          "slicerType": "date",
+          "defaultValue": "today"
+        },
+        {
+          "name": "RevenueTable",
+          "visualType": "table",
+          "_comment": "Replaces SSRS Tablix 'RevenueTable' — 4-column layout: Department, Charges, Payments, Net Revenue",
+          "position": {
+            "x": 20,
+            "y": 130,
+            "width": 800,
+            "height": 450
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "Departments[department_name]",
+                "displayName": "Department",
+                "_comment": "SSRS: =Fields!Department.Value (mapped from DataField 'department_name')"
+              },
+              {
+                "measure": "Total Revenue",
+                "displayName": "Charges",
+                "formatString": "$#,##0.00",
+                "_comment": "SSRS: =Fields!ChargesAmount.Value with Format=$#,##0.00. DAX measure replaces SUM(charge_amount) from usp_GetDailyRevenue"
+              },
+              {
+                "measure": "Total Payments",
+                "displayName": "Payments",
+                "formatString": "$#,##0.00",
+                "_comment": "SSRS: =Fields!PaymentsAmount.Value with Format=$#,##0.00. DAX measure replaces SUM(payment_amount) from usp_GetDailyRevenue"
+              },
+              {
+                "measure": "Net Revenue",
+                "displayName": "Net Revenue",
+                "formatString": "$#,##0.00",
+                "_comment": "SSRS: =Fields!NetRevenue.Value with Format=$#,##0.00. DAX: [Total Revenue] - [Total Adjustments]. Note: DAX SUM treats BLANK as 0, replacing ISNULL in the SP"
+              }
+            ]
+          },
+          "totals": {
+            "showRowGrandTotal": true,
+            "_comment": "Matches SSRS Tablix footer totals row"
+          }
+        },
+        {
+          "name": "TotalRevenueCard",
+          "visualType": "card",
+          "position": {
+            "x": 850,
+            "y": 130,
+            "width": 200,
+            "height": 100
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Total Revenue",
+                "formatString": "$#,##0.00"
+              }
+            ]
+          },
+          "title": "Total Charges"
+        },
+        {
+          "name": "NetRevenueCard",
+          "visualType": "card",
+          "position": {
+            "x": 1060,
+            "y": 130,
+            "width": 200,
+            "height": 100
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Net Revenue",
+                "formatString": "$#,##0.00"
+              }
+            ]
+          },
+          "title": "Net Revenue"
+        },
+        {
+          "name": "RevenueTrendChart",
+          "visualType": "lineChart",
+          "position": {
+            "x": 850,
+            "y": 250,
+            "width": 410,
+            "height": 330
+          },
+          "dataRoles": {
+            "Axis": [
+              {
+                "column": "Calendar[Date]"
+              }
+            ],
+            "Values": [
+              {
+                "measure": "Running Total Revenue",
+                "_comment": "Replaces Crystal RunningTotal field — DAX CALCULATE with cumulative FILTER over Calendar"
+              }
+            ]
+          },
+          "title": "Cumulative Revenue Trend"
+        }
+      ]
+    },
+    {
+      "name": "DepartmentDetail",
+      "displayName": "Department Detail",
+      "displayOption": "FitToPage",
+      "width": 1280,
+      "height": 720,
+      "isDrillthrough": true,
+      "drillThroughFilters": [
+        {
+          "column": "Departments[department_name]",
+          "_comment": "Drill-through from RevenueTable: right-click a department row to see detail. New capability — SSRS had no drill-through equivalent for this report"
+        }
+      ],
+      "visuals": [
+        {
+          "name": "DrillThroughTitle",
+          "visualType": "textbox",
+          "position": {
+            "x": 20,
+            "y": 10,
+            "width": 600,
+            "height": 50
+          },
+          "content": "Department Revenue Detail",
+          "style": {
+            "fontSize": 20,
+            "fontWeight": "bold"
+          }
+        },
+        {
+          "name": "DepartmentChargesTable",
+          "visualType": "table",
+          "position": {
+            "x": 20,
+            "y": 80,
+            "width": 1240,
+            "height": 400
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "Calendar[Date]",
+                "displayName": "Date"
+              },
+              {
+                "measure": "Total Revenue",
+                "displayName": "Charges",
+                "formatString": "$#,##0.00"
+              },
+              {
+                "measure": "Total Payments",
+                "displayName": "Payments",
+                "formatString": "$#,##0.00"
+              },
+              {
+                "measure": "Net Revenue",
+                "displayName": "Net Revenue",
+                "formatString": "$#,##0.00"
+              }
+            ]
+          }
+        },
+        {
+          "name": "DepartmentTrendLine",
+          "visualType": "lineChart",
+          "position": {
+            "x": 20,
+            "y": 500,
+            "width": 1240,
+            "height": 200
+          },
+          "dataRoles": {
+            "Axis": [
+              {
+                "column": "Calendar[Date]"
+              }
+            ],
+            "Values": [
+              {
+                "measure": "Total Revenue"
+              },
+              {
+                "measure": "Net Revenue"
+              }
+            ]
+          },
+          "title": "Department Revenue Over Time"
+        },
+        {
+          "name": "BackButton",
+          "visualType": "actionButton",
+          "position": {
+            "x": 1150,
+            "y": 10,
+            "width": 110,
+            "height": 40
+          },
+          "action": "back",
+          "text": "← Back"
+        }
+      ]
+    }
+  ],
+  "theme": {
+    "name": "ClearwaterHealth",
+    "foreground": "#252423",
+    "background": "#FFFFFF",
+    "tableAccent": "#0078D4"
+  }
+}

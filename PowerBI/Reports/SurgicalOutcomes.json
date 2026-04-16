@@ -1,0 +1,272 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.0.0/schema.json",
+  "_comment": "Power BI report definition — converts CrystalReports/SurgicalOutcomes.rpt",
+  "_migrationNotes": {
+    "sourceFile": "CrystalReports/SurgicalOutcomes.rpt",
+    "sourcePlatform": "Crystal Reports",
+    "sourceDataSource": "Oracle — CLINICALPRD",
+    "targetDataSource": "Azure SQL — ClearwaterHealth (via SemanticModel)",
+    "keyChanges": [
+      "N+1 sub-report anti-pattern eliminated — Crystal SubReport 'ComplicationDetails' linked on surgery_id replaced by flattened view vw_SurgicalOutcomes with LEFT JOIN",
+      "Crystal parameters StartDate/EndDate replaced by Calendar date range slicer",
+      "Crystal formula ComplicationRate replaced by DAX measure Complication Rate = DIVIDE([Total Complications], [Total Surgeries]) * 100",
+      "Complications now shown inline via relationship (Surgeries → Complications) instead of sub-report round-trips",
+      "Added procedure-level complication rate breakdown (new capability)",
+      "fn_CalculateReadmissionRisk replaced by DAX calculated column ReadmissionRiskScore"
+    ]
+  },
+  "datasetReference": {
+    "byPath": {
+      "path": "../SemanticModel"
+    },
+    "byConnection": null
+  },
+  "reportPages": [
+    {
+      "name": "SurgicalOutcomesSummary",
+      "displayName": "Surgical Outcomes",
+      "displayOption": "FitToPage",
+      "width": 1280,
+      "height": 720,
+      "visuals": [
+        {
+          "name": "PageTitle",
+          "visualType": "textbox",
+          "position": {
+            "x": 20,
+            "y": 10,
+            "width": 500,
+            "height": 50
+          },
+          "content": "Surgical Outcomes Report",
+          "style": {
+            "fontSize": 20,
+            "fontWeight": "bold",
+            "fontColor": "#252423"
+          }
+        },
+        {
+          "name": "DateRangeSlicer",
+          "visualType": "slicer",
+          "_comment": "Replaces Crystal parameters: StartDate (Date, 'Start Date'), EndDate (Date, 'End Date'). Crystal: :StartDate / :EndDate → Power BI: Calendar date range slicer",
+          "position": {
+            "x": 550,
+            "y": 10,
+            "width": 400,
+            "height": 50
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "Calendar[Date]"
+              }
+            ]
+          },
+          "slicerType": "dateRange"
+        },
+        {
+          "name": "TotalSurgeriesCard",
+          "visualType": "card",
+          "position": {
+            "x": 980,
+            "y": 10,
+            "width": 140,
+            "height": 50
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Total Surgeries"
+              }
+            ]
+          },
+          "title": "Surgeries"
+        },
+        {
+          "name": "ComplicationRateCard",
+          "visualType": "card",
+          "_comment": "Replaces Crystal formula ComplicationRate = Count(complication_id) / Count(surgery_id) * 100. DAX: DIVIDE([Total Complications], [Total Surgeries]) * 100",
+          "position": {
+            "x": 1130,
+            "y": 10,
+            "width": 140,
+            "height": 50
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Complication Rate",
+                "formatString": "0.0%"
+              }
+            ]
+          },
+          "title": "Complication Rate",
+          "conditionalFormatting": [
+            {
+              "rules": [
+                {
+                  "condition": { "operator": "greaterThan", "value": 10 },
+                  "formatting": { "foregroundColor": "#E81123" }
+                },
+                {
+                  "condition": { "operator": "greaterThan", "value": 5 },
+                  "formatting": { "foregroundColor": "#FF8C00" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "SurgeryTable",
+          "visualType": "table",
+          "_comment": "Replaces Crystal Detail section — flattened view eliminates N+1 sub-report. Source: vw_SurgicalOutcomes (LEFT JOIN surgeries ↔ complications). Crystal SubReport 'ComplicationDetails' linked on surgery_id is no longer needed.",
+          "position": {
+            "x": 20,
+            "y": 80,
+            "width": 850,
+            "height": 400
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "Surgeries[surgery_date]",
+                "displayName": "Date",
+                "formatString": "MM/DD/YYYY"
+              },
+              {
+                "column": "Surgeries[procedure_code]",
+                "displayName": "Procedure"
+              },
+              {
+                "column": "Surgeries[procedure_name]",
+                "displayName": "Procedure Name"
+              },
+              {
+                "column": "Surgeries[surgeon_name]",
+                "displayName": "Surgeon",
+                "_comment": "Crystal: Field surgeon_name in Detail section"
+              },
+              {
+                "column": "Surgeries[duration_minutes]",
+                "displayName": "Duration (min)"
+              },
+              {
+                "column": "Surgeries[outcome_code]",
+                "displayName": "Outcome"
+              },
+              {
+                "measure": "Complication Rate",
+                "displayName": "Compl. Rate %",
+                "formatString": "0.0%"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ComplicationsByProcedure",
+          "visualType": "barChart",
+          "_comment": "New visual — replaces the need to open each sub-report to see complication details by procedure. Uses the flattened vw_SurgicalOutcomes view.",
+          "position": {
+            "x": 890,
+            "y": 80,
+            "width": 370,
+            "height": 280
+          },
+          "dataRoles": {
+            "Axis": [
+              {
+                "column": "Surgeries[procedure_code]"
+              }
+            ],
+            "Values": [
+              {
+                "measure": "Complication Rate",
+                "formatString": "0.0%"
+              }
+            ]
+          },
+          "title": "Complication Rate by Procedure",
+          "conditionalFormatting": [
+            {
+              "target": { "measure": "Complication Rate" },
+              "rules": [
+                {
+                  "condition": { "operator": "greaterThan", "value": 10 },
+                  "formatting": { "fillColor": "#E81123" }
+                },
+                {
+                  "condition": { "operator": "greaterThan", "value": 5 },
+                  "formatting": { "fillColor": "#FF8C00" }
+                },
+                {
+                  "condition": { "operator": "lessThanOrEqual", "value": 5 },
+                  "formatting": { "fillColor": "#0078D4" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ComplicationDetailTable",
+          "visualType": "table",
+          "_comment": "Inline complication details — replaces Crystal SubReport 'ComplicationDetails'. No longer triggers a separate query per surgery row (eliminates N+1). Data comes from the Complications table via relationship to Surgeries.",
+          "position": {
+            "x": 890,
+            "y": 380,
+            "width": 370,
+            "height": 200
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "column": "Complications[complication_type]",
+                "displayName": "Complication"
+              },
+              {
+                "column": "Complications[severity]",
+                "displayName": "Severity"
+              },
+              {
+                "measure": "Total Complications",
+                "displayName": "Count"
+              }
+            ]
+          },
+          "title": "Complication Details"
+        },
+        {
+          "name": "OutcomeTrend",
+          "visualType": "lineChart",
+          "position": {
+            "x": 20,
+            "y": 500,
+            "width": 850,
+            "height": 200
+          },
+          "dataRoles": {
+            "Axis": [
+              {
+                "column": "Calendar[Date]"
+              }
+            ],
+            "Values": [
+              {
+                "measure": "Complication Rate"
+              },
+              {
+                "measure": "Total Surgeries"
+              }
+            ]
+          },
+          "title": "Surgical Volume & Complication Rate Trend"
+        }
+      ]
+    }
+  ],
+  "theme": {
+    "name": "ClearwaterHealth",
+    "foreground": "#252423",
+    "background": "#FFFFFF",
+    "tableAccent": "#0078D4"
+  }
+}

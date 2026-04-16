@@ -1,0 +1,192 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.0.0/schema.json",
+  "_comment": "Power BI report definition — converts CrystalReports/PatientCensus.rpt",
+  "_migrationNotes": {
+    "sourceFile": "CrystalReports/PatientCensus.rpt",
+    "sourcePlatform": "Crystal Reports",
+    "sourceDataSource": "Oracle — CLINICALPRD",
+    "targetDataSource": "Azure SQL — ClearwaterHealth (via SemanticModel)",
+    "keyChanges": [
+      "Crystal crosstab replaced with Power BI matrix visual grouped by ward_name",
+      "Crystal formula LengthOfStay (SYSDATE - admission_date) replaced by DAX measure Average Length of Stay",
+      "Crystal formula WardOccupancy replaced by DAX measure Occupancy Percent",
+      "Conditional formatting (red > 95%) converted from Crystal GroupHeader color rule to Power BI conditional formatting rule",
+      "No parameters needed — real-time snapshot uses slicer-based filtering"
+    ]
+  },
+  "datasetReference": {
+    "byPath": {
+      "path": "../SemanticModel"
+    },
+    "byConnection": null
+  },
+  "reportPages": [
+    {
+      "name": "PatientCensusOverview",
+      "displayName": "Patient Census",
+      "displayOption": "FitToPage",
+      "width": 1280,
+      "height": 720,
+      "visuals": [
+        {
+          "name": "WardCensusMatrix",
+          "visualType": "matrix",
+          "position": {
+            "x": 20,
+            "y": 80,
+            "width": 900,
+            "height": 500
+          },
+          "dataRoles": {
+            "Rows": [
+              {
+                "column": "Wards[ward_name]",
+                "_comment": "Replaces Crystal GROUP BY ward_name with SortOrder=Ascending"
+              }
+            ],
+            "Values": [
+              {
+                "measure": "Patient Count",
+                "_comment": "Replaces Crystal Count({patients.patient_id})"
+              },
+              {
+                "measure": "Occupancy Percent",
+                "formatString": "0.0%",
+                "_comment": "Replaces Crystal formula WardOccupancy = Count(patient_id) / bed_capacity * 100"
+              },
+              {
+                "measure": "Average Length of Stay",
+                "formatString": "0.0",
+                "_comment": "Replaces Crystal formula LengthOfStay = SYSDATE - admission_date (averaged)"
+              }
+            ]
+          },
+          "sortOrder": [
+            {
+              "column": "Wards[ward_name]",
+              "direction": "Ascending"
+            }
+          ],
+          "conditionalFormatting": [
+            {
+              "_comment": "Replaces Crystal conditional: Field WardOccupancy Color=Red Condition=WardOccupancy > 95",
+              "target": {
+                "measure": "Occupancy Percent"
+              },
+              "rules": [
+                {
+                  "condition": {
+                    "operator": "greaterThan",
+                    "value": 95
+                  },
+                  "formatting": {
+                    "foregroundColor": "#E81123",
+                    "backgroundColor": "#FDE7E9",
+                    "fontWeight": "bold"
+                  },
+                  "_comment": "Red text + light red background when ward occupancy exceeds 95% — matches Crystal red conditional on GroupHeader"
+                },
+                {
+                  "condition": {
+                    "operator": "greaterThanOrEqual",
+                    "value": 85
+                  },
+                  "formatting": {
+                    "foregroundColor": "#FF8C00",
+                    "backgroundColor": "#FFF4CE"
+                  },
+                  "_comment": "Warning amber for 85-95% occupancy — new enhancement not in Crystal original"
+                }
+              ]
+            }
+          ],
+          "rowSubtotals": true,
+          "columnSubtotals": true
+        },
+        {
+          "name": "PageTitle",
+          "visualType": "textbox",
+          "position": {
+            "x": 20,
+            "y": 10,
+            "width": 600,
+            "height": 50
+          },
+          "content": "Patient Census Report — Ward Occupancy",
+          "style": {
+            "fontSize": 20,
+            "fontWeight": "bold",
+            "fontColor": "#252423"
+          }
+        },
+        {
+          "name": "OccupancyCard",
+          "visualType": "card",
+          "position": {
+            "x": 940,
+            "y": 80,
+            "width": 320,
+            "height": 130
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Occupancy Percent",
+                "formatString": "0.0%"
+              }
+            ]
+          },
+          "title": "Overall Occupancy"
+        },
+        {
+          "name": "PatientCountCard",
+          "visualType": "card",
+          "position": {
+            "x": 940,
+            "y": 220,
+            "width": 320,
+            "height": 130
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Patient Count"
+              }
+            ]
+          },
+          "title": "Total Patients"
+        },
+        {
+          "name": "AvgLOSCard",
+          "visualType": "card",
+          "position": {
+            "x": 940,
+            "y": 360,
+            "width": 320,
+            "height": 130
+          },
+          "dataRoles": {
+            "Values": [
+              {
+                "measure": "Average Length of Stay",
+                "formatString": "0.0 days"
+              }
+            ]
+          },
+          "title": "Avg Length of Stay"
+        }
+      ],
+      "filters": [
+        {
+          "_comment": "No parameters in Crystal original — this slicer replaces the implicit WHERE discharge_date IS NULL filter via Current Patient Count measure"
+        }
+      ]
+    }
+  ],
+  "theme": {
+    "name": "ClearwaterHealth",
+    "foreground": "#252423",
+    "background": "#FFFFFF",
+    "tableAccent": "#0078D4"
+  }
+}
