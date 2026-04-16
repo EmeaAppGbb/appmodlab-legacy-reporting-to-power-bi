@@ -1,0 +1,63 @@
+ÔùÅ List directory .
+  Ôöö 11 files found
+
+ÔùÅ List directory PowerBI
+  Ôöö 5 files found
+
+ÔùÅ Explore Explore repo for RLS context
+  Ôöé Read vw_SurgicalOutcomes.sql
+  Ôöé   Ôöé PowerBI\ConsolidatedSQL\vw_SurgicalOutcomes.sql
+  Ôöé   Ôöö 50 lines read
+  Ôöö Read vw_QualityMetrics.sql
+      Ôöé PowerBI\ConsolidatedSQL\vw_QualityMetrics.sql
+      Ôöö 53 lines read
+
+Now I have full context. Let me create all four files.
+
+ÔùÅ Create Security directory (shell)
+  Ôöé New-Item -ItemType Directory -Path
+  Ôöé "C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi\PowerBI\Security"
+  Ôöé -Force
+  Ôöö 4 lines...
+
+ÔùÅ Create rls-dax-filters.dax +168
+  Ôöö PowerBI\Security\rls-dax-filters.dax
+
+ÔùÅ Create test-matrix.md +457
+  Ôöö PowerBI\Security\test-matrix.md
+
+ÔùÅ Create role-mappings.md +235
+  Ôöö PowerBI\Security\role-mappings.md
+
+ÔùÅ Create rls-roles.json +115
+  Ôöö PowerBI\Security\rls-roles.json
+
+Now let me commit the changes:
+
+ÔùÅ Stage and check RLS files (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi && git add
+  Ôöé PowerBI/Security/ && git status --short
+  Ôöö 6 lines...
+
+ÔùÅ Commit RLS implementation (shell)
+  Ôöé cd C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi && git commit
+  Ôöé -m "Step 5: Implement Row-Level Security for Power BI
+  Ôöé
+  Ôöé Add PowerBI/Security/ directory with centralized RLS configuration that
+  Ôöé replaces legacy per-report SSRS folder-based permissions and Crystal ÔÇª
+  Ôöö 26 lines...
+
+Done. Created `PowerBI/Security/` with all four files:
+
+1. **rls-roles.json** ÔÇö Three RLS roles: `DepartmentRole` (DAX filter on `[department_name] = USERPRINCIPALNAME()`), `PhysicianRole` (LOOKUPVALUE matching user email to `attending_physician`), `ExecutiveRole` (no filter, full access). Includes legacy equivalent documentation and deployment notes.
+
+2. **rls-dax-filters.dax** ÔÇö DAX expressions with comments explaining the translation from legacy per-report stored procedure/folder-based RLS to centralized dataset-level filtering. Highlights the HIPAA improvement of server-side filtering vs. Crystal's client-side approach.
+
+3. **role-mappings.md** ÔÇö Maps SSRS folder permissions and Crystal client security to the new RLS model with user-to-role assignments, subscription security mapping, and 6 test scenarios.
+
+4. **test-matrix.md** ÔÇö 12 test cases (TC-01 through TC-12) covering department isolation, physician patient filtering, executive full access, security-by-default, cross-scope restrictions, subscription delivery, and dynamic membership validation.
+
+
+Changes   +975 -0
+Requests  3 Premium (5m 51s)
+Tokens    Ôåæ 772.6k ÔÇó Ôåô 22.2k ÔÇó 667.6k (cached)
