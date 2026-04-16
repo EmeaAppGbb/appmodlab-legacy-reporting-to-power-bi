@@ -1,0 +1,114 @@
+ÔùÅ List directory .
+  Ôöö 10 files found
+
+ÔùÅ List directory Subscriptions
+  Ôöö 1 file found
+
+ÔùÅ List directory SQL
+  Ôöö 3 files found
+
+ÔùÅ List directory CrystalReports
+  Ôöö 2 files found
+
+ÔùÅ List directory SSRS-Reports
+  Ôöö 2 files found
+
+ÔùÅ List directory DataSources
+  Ôöö 2 files found
+
+ÔùÅ List directory SQL\StoredProcedures
+  Ôöö 1 file found
+
+ÔùÅ List directory SSRS-Reports\RevenueCycle
+  Ôöö 1 file found
+
+ÔùÅ List directory SSRS-Reports\Clinical
+  Ôöö 1 file found
+
+ÔùÅ List directory SQL\Views
+  Ôöö 1 file found
+
+ÔùÅ List directory SQL\Functions
+  Ôöö 1 file found
+
+Now let me read all the report files, SQL objects, data sources, and subscription config in parallel:
+
+ÔùÅ Read PatientCensus.rpt
+  Ôöé CrystalReports\PatientCensus.rpt
+  Ôöö 37 lines read
+
+ÔùÅ Read SurgicalOutcomes.rpt
+  Ôöé CrystalReports\SurgicalOutcomes.rpt
+  Ôöö 26 lines read
+
+ÔùÅ Read QualityMetrics.rdl
+  Ôöé SSRS-Reports\Clinical\QualityMetrics.rdl
+  Ôöö 62 lines read
+
+ÔùÅ Read fn_CalculateReadmissionRisk.sql
+  Ôöé SQL\Functions\fn_CalculateReadmissionRisk.sql
+  Ôöö 37 lines read
+
+ÔùÅ Read DailyRevenue.rdl
+  Ôöé SSRS-Reports\RevenueCycle\DailyRevenue.rdl
+  Ôöö 75 lines read
+
+ÔùÅ Read usp_GetDailyRevenue.sql
+  Ôöé SQL\StoredProcedures\usp_GetDailyRevenue.sql
+  Ôöö 20 lines read
+
+ÔùÅ Read vw_PatientCensus.sql
+  Ôöé SQL\Views\vw_PatientCensus.sql
+  Ôöö 14 lines read
+
+ÔùÅ Read OracleConnection.config
+  Ôöé DataSources\OracleConnection.config
+  Ôöö 11 lines read
+
+ÔùÅ Read SQLServerConnection.config
+  Ôöé DataSources\SQLServerConnection.config
+  Ôöö 9 lines read
+
+ÔùÅ Read SubscriptionConfig.xml
+  Ôöé Subscriptions\SubscriptionConfig.xml
+  Ôöö 32 lines read
+
+ÔùÅ Read APPMODLAB.md
+  Ôöö 343 lines read
+
+ÔùÅ Read README.md
+  Ôöö 250 lines read
+
+Now I have full understanding of all reports. Let me create the PowerBI directory and both files.
+
+ÔùÅ Create PowerBI directory (shell)
+  Ôöé New-Item -ItemType Directory -Path
+  Ôöé "C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi\PowerBI" -Force
+  Ôöö 4 lines...
+
+ÔùÅ Create ReportInventory.md +136
+  Ôöö PowerBI\ReportInventory.md
+
+ÔùÅ Create MigrationPlan.md +174
+  Ôöö PowerBI\MigrationPlan.md
+
+Verify the files were created correctly:
+
+ÔùÅ List directory PowerBI
+  Ôöö 2 files found
+
+Done. Created `PowerBI/` with two files:
+
+- **`ReportInventory.md`** ÔÇö Catalogs all 4 legacy reports (2 Crystal, 2 SSRS) with platform, data source, SQL dependencies, formulas, subscriptions, complexity rating (Low/Medium/High), and migration priority (P1ÔÇôP3). Also documents the 3 supporting SQL objects, 2 data sources, and 3 active subscriptions.
+
+- **`MigrationPlan.md`** ÔÇö Prioritized 3-wave conversion order:
+  1. **Wave 1 (Weeks 1ÔÇô2):** Daily Revenue + Patient Census (P1 quick wins)
+  2. **Wave 2 (Weeks 3ÔÇô4):** Quality Metrics (P2 compliance)
+  3. **Wave 3 (Weeks 5ÔÇô6):** Surgical Outcomes (P3 complex sub-report redesign)
+
+  Includes data source consolidation plan, SQL-to-DAX formula translations, subscription migration mapping, risk register, and validation checklist.
+
+
+Changes   +310 -0
+Requests  3 Premium (2m 40s)
+Tokens    Ôåæ 281.4k ÔÇó Ôåô 7.7k ÔÇó 195.2k (cached)
