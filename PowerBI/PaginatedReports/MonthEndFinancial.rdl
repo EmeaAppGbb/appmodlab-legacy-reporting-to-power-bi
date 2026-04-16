@@ -1,0 +1,740 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Clearwater Health System — Month-End Financial Summary (Paginated)
+  ===================================================================
+  Power BI Paginated Report (RDL) — compatible with Power BI Report Builder.
+
+  Replaces: Monthly snapshot archive pattern from SSRS DailyRevenue.rdl
+            subscription (aggregated to month level for CFO/finance review).
+  Data Source: Power BI semantic model (not direct SQL connection)
+  Purpose: Pixel-perfect month-end financial summary for executive review,
+           board presentations, and archival. Includes department breakdowns,
+           YTD comparisons, and prior-year variance analysis.
+-->
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+        xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <AutoRefresh>0</AutoRefresh>
+
+  <Description>Month-End Financial Summary — Clearwater Health System</Description>
+  <Author>Clearwater Health BI Team</Author>
+
+  <!-- ================================================================== -->
+  <!-- DATA SOURCE — Power BI Semantic Model                              -->
+  <!-- ================================================================== -->
+  <DataSources>
+    <DataSource Name="PowerBIDataset">
+      <ConnectionProperties>
+        <DataProvider>PBIDATASET</DataProvider>
+        <ConnectString>Data Source=powerbi://api.powerbi.com/v1.0/myorg/ClearwaterHealth;Initial Catalog=ClearwaterHealthModel</ConnectString>
+      </ConnectionProperties>
+    </DataSource>
+  </DataSources>
+
+  <!-- ================================================================== -->
+  <!-- DATASETS                                                           -->
+  <!-- ================================================================== -->
+  <DataSets>
+    <!-- Department revenue breakdown for the selected month -->
+    <DataSet Name="DepartmentRevenue">
+      <Query>
+        <DataSourceName>PowerBIDataset</DataSourceName>
+        <CommandType>DAX</CommandType>
+        <CommandText>
+          EVALUATE
+          ADDCOLUMNS(
+            SUMMARIZE(
+              Charges,
+              Departments[department_name]
+            ),
+            "TotalRevenue", [Total Revenue],
+            "TotalPayments", [Total Payments],
+            "TotalAdjustments", [Total Adjustments],
+            "NetRevenue", [Net Revenue],
+            "PriorYearRevenue", [Prior Year Revenue],
+            "RevenueGrowthPct", [Revenue Growth Pct]
+          )
+        </CommandText>
+      </Query>
+      <Fields>
+        <Field Name="department_name"><DataField>Departments[department_name]</DataField></Field>
+        <Field Name="TotalRevenue"><DataField>[TotalRevenue]</DataField></Field>
+        <Field Name="TotalPayments"><DataField>[TotalPayments]</DataField></Field>
+        <Field Name="TotalAdjustments"><DataField>[TotalAdjustments]</DataField></Field>
+        <Field Name="NetRevenue"><DataField>[NetRevenue]</DataField></Field>
+        <Field Name="PriorYearRevenue"><DataField>[PriorYearRevenue]</DataField></Field>
+        <Field Name="RevenueGrowthPct"><DataField>[RevenueGrowthPct]</DataField></Field>
+      </Fields>
+    </DataSet>
+
+    <!-- Organization-level totals and YTD -->
+    <DataSet Name="OrganizationSummary">
+      <Query>
+        <DataSourceName>PowerBIDataset</DataSourceName>
+        <CommandType>DAX</CommandType>
+        <CommandText>
+          EVALUATE
+          ROW(
+            "MonthTotalRevenue", [Total Revenue],
+            "MonthNetRevenue", [Net Revenue],
+            "MonthTotalPayments", [Total Payments],
+            "MonthTotalAdjustments", [Total Adjustments],
+            "YTDRevenue", [YTD Revenue],
+            "YTDNetRevenue", [YTD Net Revenue],
+            "PriorYearRevenue", [Prior Year Revenue],
+            "RevenueGrowthPct", [Revenue Growth Pct],
+            "PatientCountWithCharges", [Patient Count with Charges]
+          )
+        </CommandText>
+      </Query>
+      <Fields>
+        <Field Name="MonthTotalRevenue"><DataField>[MonthTotalRevenue]</DataField></Field>
+        <Field Name="MonthNetRevenue"><DataField>[MonthNetRevenue]</DataField></Field>
+        <Field Name="MonthTotalPayments"><DataField>[MonthTotalPayments]</DataField></Field>
+        <Field Name="MonthTotalAdjustments"><DataField>[MonthTotalAdjustments]</DataField></Field>
+        <Field Name="YTDRevenue"><DataField>[YTDRevenue]</DataField></Field>
+        <Field Name="YTDNetRevenue"><DataField>[YTDNetRevenue]</DataField></Field>
+        <Field Name="PriorYearRevenue"><DataField>[PriorYearRevenue]</DataField></Field>
+        <Field Name="RevenueGrowthPct"><DataField>[RevenueGrowthPct]</DataField></Field>
+        <Field Name="PatientCountWithCharges"><DataField>[PatientCountWithCharges]</DataField></Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+
+  <!-- ================================================================== -->
+  <!-- REPORT PARAMETERS                                                  -->
+  <!-- ================================================================== -->
+  <ReportParameters>
+    <ReportParameter Name="ReportMonth">
+      <DataType>Integer</DataType>
+      <Prompt>Month (1-12)</Prompt>
+      <DefaultValue>
+        <Values>
+          <Value>=Month(Today())-1</Value>
+        </Values>
+      </DefaultValue>
+      <ValidValues>
+        <ParameterValues>
+          <ParameterValue><Value>1</Value><Label>January</Label></ParameterValue>
+          <ParameterValue><Value>2</Value><Label>February</Label></ParameterValue>
+          <ParameterValue><Value>3</Value><Label>March</Label></ParameterValue>
+          <ParameterValue><Value>4</Value><Label>April</Label></ParameterValue>
+          <ParameterValue><Value>5</Value><Label>May</Label></ParameterValue>
+          <ParameterValue><Value>6</Value><Label>June</Label></ParameterValue>
+          <ParameterValue><Value>7</Value><Label>July</Label></ParameterValue>
+          <ParameterValue><Value>8</Value><Label>August</Label></ParameterValue>
+          <ParameterValue><Value>9</Value><Label>September</Label></ParameterValue>
+          <ParameterValue><Value>10</Value><Label>October</Label></ParameterValue>
+          <ParameterValue><Value>11</Value><Label>November</Label></ParameterValue>
+          <ParameterValue><Value>12</Value><Label>December</Label></ParameterValue>
+        </ParameterValues>
+      </ValidValues>
+      <AllowBlank>false</AllowBlank>
+    </ReportParameter>
+    <ReportParameter Name="ReportYear">
+      <DataType>Integer</DataType>
+      <Prompt>Year</Prompt>
+      <DefaultValue>
+        <Values>
+          <Value>=Year(Today())</Value>
+        </Values>
+      </DefaultValue>
+      <AllowBlank>false</AllowBlank>
+    </ReportParameter>
+  </ReportParameters>
+
+  <!-- ================================================================== -->
+  <!-- PAGE SETUP — Letter, landscape for financial tables                -->
+  <!-- ================================================================== -->
+  <Page>
+    <PageHeight>8.5in</PageHeight>
+    <PageWidth>11in</PageWidth>
+    <LeftMargin>0.75in</LeftMargin>
+    <RightMargin>0.75in</RightMargin>
+    <TopMargin>0.75in</TopMargin>
+    <BottomMargin>0.75in</BottomMargin>
+    <Style>
+      <BackgroundColor>White</BackgroundColor>
+    </Style>
+  </Page>
+
+  <!-- ================================================================== -->
+  <!-- PAGE HEADER                                                        -->
+  <!-- ================================================================== -->
+  <PageHeader>
+    <Height>1in</Height>
+    <PrintOnFirstPage>true</PrintOnFirstPage>
+    <PrintOnLastPage>true</PrintOnLastPage>
+    <ReportItems>
+      <Textbox Name="ReportTitle">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0.4in</Height>
+        <Width>9.5in</Width>
+        <Value>Month-End Financial Summary</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>18pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+          <Color>#1B4F72</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="FacilityName">
+        <Top>0.4in</Top>
+        <Left>0in</Left>
+        <Height>0.25in</Height>
+        <Width>4in</Width>
+        <Value>Clearwater Health System</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>10pt</FontSize>
+          <Color>#333333</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="PeriodLabel">
+        <Top>0.4in</Top>
+        <Left>6in</Left>
+        <Height>0.25in</Height>
+        <Width>3.5in</Width>
+        <Value>=&quot;Period: &quot; &amp; MonthName(Parameters!ReportMonth.Value) &amp; &quot; &quot; &amp; Parameters!ReportYear.Value</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>11pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+          <TextAlign>Right</TextAlign>
+        </Style>
+      </Textbox>
+      <Textbox Name="GeneratedDate">
+        <Top>0.65in</Top>
+        <Left>6in</Left>
+        <Height>0.2in</Height>
+        <Width>3.5in</Width>
+        <Value>=&quot;Generated: &quot; &amp; Format(Today(), &quot;MMMM dd, yyyy&quot;)</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>9pt</FontSize>
+          <TextAlign>Right</TextAlign>
+          <Color>#666666</Color>
+        </Style>
+      </Textbox>
+      <Line Name="HeaderRule">
+        <Top>0.9in</Top>
+        <Left>0in</Left>
+        <Height>0in</Height>
+        <Width>9.5in</Width>
+        <Style>
+          <Border><Style>Solid</Style><Color>#1B4F72</Color><Width>2pt</Width></Border>
+        </Style>
+      </Line>
+    </ReportItems>
+  </PageHeader>
+
+  <!-- ================================================================== -->
+  <!-- REPORT BODY                                                        -->
+  <!-- ================================================================== -->
+  <Body>
+    <Height>5.5in</Height>
+    <ReportItems>
+
+      <!-- Organization-Level KPI Summary -->
+      <Rectangle Name="KPISummary">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0.9in</Height>
+        <Width>9.5in</Width>
+        <ReportItems>
+          <Textbox Name="KPITitle">
+            <Top>0in</Top>
+            <Left>0in</Left>
+            <Height>0.3in</Height>
+            <Width>9.5in</Width>
+            <Value>Organization Summary</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>12pt</FontSize>
+              <FontWeight>Bold</FontWeight>
+              <Color>#1B4F72</Color>
+            </Style>
+          </Textbox>
+          <Textbox Name="KPIRow1">
+            <Top>0.35in</Top>
+            <Left>0in</Left>
+            <Height>0.25in</Height>
+            <Width>9.5in</Width>
+            <Value>=&quot;Gross Revenue: &quot; &amp; Format(First(Fields!MonthTotalRevenue.Value, &quot;OrganizationSummary&quot;), &quot;$#,##0.00&quot;) &amp; &quot;    |    Net Revenue: &quot; &amp; Format(First(Fields!MonthNetRevenue.Value, &quot;OrganizationSummary&quot;), &quot;$#,##0.00&quot;) &amp; &quot;    |    Payments: &quot; &amp; Format(First(Fields!MonthTotalPayments.Value, &quot;OrganizationSummary&quot;), &quot;$#,##0.00&quot;) &amp; &quot;    |    Adjustments: &quot; &amp; Format(First(Fields!MonthTotalAdjustments.Value, &quot;OrganizationSummary&quot;), &quot;$#,##0.00&quot;)</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>9pt</FontSize>
+            </Style>
+          </Textbox>
+          <Textbox Name="KPIRow2">
+            <Top>0.6in</Top>
+            <Left>0in</Left>
+            <Height>0.25in</Height>
+            <Width>9.5in</Width>
+            <Value>=&quot;YTD Revenue: &quot; &amp; Format(First(Fields!YTDRevenue.Value, &quot;OrganizationSummary&quot;), &quot;$#,##0.00&quot;) &amp; &quot;    |    YTD Net Revenue: &quot; &amp; Format(First(Fields!YTDNetRevenue.Value, &quot;OrganizationSummary&quot;), &quot;$#,##0.00&quot;) &amp; &quot;    |    YoY Growth: &quot; &amp; Format(First(Fields!RevenueGrowthPct.Value, &quot;OrganizationSummary&quot;), &quot;0.0&quot;) &amp; &quot;%&quot;</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>9pt</FontSize>
+            </Style>
+          </Textbox>
+        </ReportItems>
+      </Rectangle>
+
+      <!-- Department Revenue Tablix -->
+      <Tablix Name="DepartmentRevenueTablix">
+        <Top>1.1in</Top>
+        <Left>0in</Left>
+        <Height>1in</Height>
+        <Width>9.5in</Width>
+        <DataSetName>DepartmentRevenue</DataSetName>
+        <TablixBody>
+          <TablixColumns>
+            <TablixColumn><Width>2in</Width></TablixColumn>
+            <TablixColumn><Width>1.3in</Width></TablixColumn>
+            <TablixColumn><Width>1.3in</Width></TablixColumn>
+            <TablixColumn><Width>1.2in</Width></TablixColumn>
+            <TablixColumn><Width>1.3in</Width></TablixColumn>
+            <TablixColumn><Width>1.3in</Width></TablixColumn>
+            <TablixColumn><Width>1.1in</Width></TablixColumn>
+          </TablixColumns>
+          <TablixRows>
+            <!-- Header Row -->
+            <TablixRow>
+              <Height>0.35in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrDept">
+                      <Value>Department</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrGrossRev">
+                      <Value>Gross Revenue</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <TextAlign>Right</TextAlign>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrPayments">
+                      <Value>Payments</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <TextAlign>Right</TextAlign>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrAdj">
+                      <Value>Adjustments</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <TextAlign>Right</TextAlign>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrNetRev">
+                      <Value>Net Revenue</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <TextAlign>Right</TextAlign>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrPriorYr">
+                      <Value>Prior Year</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <TextAlign>Right</TextAlign>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HdrGrowth">
+                      <Value>YoY %</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <Color>White</Color><BackgroundColor>#1B4F72</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <!-- Detail Row -->
+            <TablixRow>
+              <Height>0.3in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="DeptName">
+                      <Value>=Fields!department_name.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize>
+                        <PaddingLeft>4pt</PaddingLeft><PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="GrossRevenue">
+                      <Value>=Fields!TotalRevenue.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="Payments">
+                      <Value>=Fields!TotalPayments.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="Adjustments">
+                      <Value>=Fields!TotalAdjustments.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="NetRevenue">
+                      <Value>=Fields!NetRevenue.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="PriorYearRev">
+                      <Value>=Fields!PriorYearRevenue.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <Color>#666666</Color>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="GrowthPct">
+                      <Value>=Fields!RevenueGrowthPct.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Center</TextAlign><Format>+0.0%;-0.0%;0.0%</Format>
+                        <Color>=IIF(Fields!RevenueGrowthPct.Value &lt; 0, "#CC0000", "#006600")</Color>
+                        <PaddingTop>3pt</PaddingTop><PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F7FB", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <!-- Totals Row -->
+            <TablixRow>
+              <Height>0.35in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalLabel">
+                      <Value>TOTAL</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <PaddingLeft>4pt</PaddingLeft><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalGrossRev">
+                      <Value>=Sum(Fields!TotalRevenue.Value)</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalPayments">
+                      <Value>=Sum(Fields!TotalPayments.Value)</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalAdj">
+                      <Value>=Sum(Fields!TotalAdjustments.Value)</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalNetRev">
+                      <Value>=Sum(Fields!NetRevenue.Value)</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalPriorYr">
+                      <Value>=Sum(Fields!PriorYearRevenue.Value)</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily><FontSize>9pt</FontSize><FontWeight>Bold</FontWeight>
+                        <TextAlign>Right</TextAlign><Format>$#,##0.00</Format>
+                        <Color>#666666</Color>
+                        <PaddingRight>4pt</PaddingRight><PaddingTop>4pt</PaddingTop><PaddingBottom>4pt</PaddingBottom>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TotalGrowthPct">
+                      <Value></Value>
+                      <Style>
+                        <BackgroundColor>#D6E4F0</BackgroundColor>
+                        <BorderTop><Style>Double</Style><Color>#1B4F72</Color><Width>2pt</Width></BorderTop>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+        <TablixColumnHierarchy>
+          <TablixMembers>
+            <TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/>
+          </TablixMembers>
+        </TablixColumnHierarchy>
+        <TablixRowHierarchy>
+          <TablixMembers>
+            <TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember>
+            <TablixMember>
+              <Group Name="DetailGroup"/>
+            </TablixMember>
+            <TablixMember><KeepWithGroup>Before</KeepWithGroup></TablixMember>
+          </TablixMembers>
+        </TablixRowHierarchy>
+        <RepeatColumnHeaders>true</RepeatColumnHeaders>
+      </Tablix>
+
+      <!-- Approval Block -->
+      <Rectangle Name="ApprovalBlock">
+        <Top>4in</Top>
+        <Left>0in</Left>
+        <Height>1.2in</Height>
+        <Width>9.5in</Width>
+        <ReportItems>
+          <Textbox Name="ApprovalTitle">
+            <Top>0in</Top>
+            <Left>0in</Left>
+            <Height>0.3in</Height>
+            <Width>9.5in</Width>
+            <Value>Approvals</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily><FontSize>11pt</FontSize><FontWeight>Bold</FontWeight>
+              <Color>#1B4F72</Color>
+              <BorderBottom><Style>Solid</Style><Color>#1B4F72</Color><Width>1pt</Width></BorderBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="CFOSignature">
+            <Top>0.5in</Top>
+            <Left>0in</Left>
+            <Height>0.25in</Height>
+            <Width>4in</Width>
+            <Value>________________________________________</Value>
+            <Style><FontFamily>Arial</FontFamily><FontSize>9pt</FontSize></Style>
+          </Textbox>
+          <Textbox Name="CFOLabel">
+            <Top>0.75in</Top>
+            <Left>0in</Left>
+            <Height>0.2in</Height>
+            <Width>4in</Width>
+            <Value>Chief Financial Officer / Date</Value>
+            <Style><FontFamily>Arial</FontFamily><FontSize>8pt</FontSize><Color>#666666</Color></Style>
+          </Textbox>
+          <Textbox Name="ControllerSignature">
+            <Top>0.5in</Top>
+            <Left>5in</Left>
+            <Height>0.25in</Height>
+            <Width>4in</Width>
+            <Value>________________________________________</Value>
+            <Style><FontFamily>Arial</FontFamily><FontSize>9pt</FontSize></Style>
+          </Textbox>
+          <Textbox Name="ControllerLabel">
+            <Top>0.75in</Top>
+            <Left>5in</Left>
+            <Height>0.2in</Height>
+            <Width>4in</Width>
+            <Value>Controller / Date</Value>
+            <Style><FontFamily>Arial</FontFamily><FontSize>8pt</FontSize><Color>#666666</Color></Style>
+          </Textbox>
+        </ReportItems>
+      </Rectangle>
+
+    </ReportItems>
+  </Body>
+
+  <!-- ================================================================== -->
+  <!-- PAGE FOOTER                                                        -->
+  <!-- ================================================================== -->
+  <PageFooter>
+    <Height>0.5in</Height>
+    <PrintOnFirstPage>true</PrintOnFirstPage>
+    <PrintOnLastPage>true</PrintOnLastPage>
+    <ReportItems>
+      <Line Name="FooterRule">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0in</Height>
+        <Width>9.5in</Width>
+        <Style>
+          <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>1pt</Width></Border>
+        </Style>
+      </Line>
+      <Textbox Name="Confidentiality">
+        <Top>0.1in</Top>
+        <Left>0in</Left>
+        <Height>0.2in</Height>
+        <Width>5in</Width>
+        <Value>CONFIDENTIAL — For internal financial review only</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>7pt</FontSize>
+          <FontStyle>Italic</FontStyle>
+          <Color>#999999</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="PageNumber">
+        <Top>0.1in</Top>
+        <Left>7.5in</Left>
+        <Height>0.2in</Height>
+        <Width>2in</Width>
+        <Value>=&quot;Page &quot; &amp; Globals!PageNumber &amp; &quot; of &quot; &amp; Globals!TotalPages</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>8pt</FontSize>
+          <TextAlign>Right</TextAlign>
+          <Color>#666666</Color>
+        </Style>
+      </Textbox>
+    </ReportItems>
+  </PageFooter>
+
+</Report>

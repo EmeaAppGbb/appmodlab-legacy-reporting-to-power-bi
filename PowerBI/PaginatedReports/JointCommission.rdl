@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Clearwater Health System — Joint Commission Compliance Report (Paginated)
+  =========================================================================
+  Power BI Paginated Report (RDL) — compatible with Power BI Report Builder.
+
+  Purpose: Joint Commission accreditation compliance checklist with pass/fail
+           indicators for each standard. Designed for pixel-perfect print
+           output used during accreditation surveys and internal audits.
+  Data Source: Power BI semantic model (not direct SQL connection)
+-->
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+        xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <AutoRefresh>0</AutoRefresh>
+
+  <Description>Joint Commission Compliance Checklist — Clearwater Health System</Description>
+  <Author>Clearwater Health BI Team</Author>
+
+  <!-- ================================================================== -->
+  <!-- DATA SOURCE — Power BI Semantic Model                              -->
+  <!-- ================================================================== -->
+  <DataSources>
+    <DataSource Name="PowerBIDataset">
+      <ConnectionProperties>
+        <DataProvider>PBIDATASET</DataProvider>
+        <ConnectString>Data Source=powerbi://api.powerbi.com/v1.0/myorg/ClearwaterHealth;Initial Catalog=ClearwaterHealthModel</ConnectString>
+      </ConnectionProperties>
+    </DataSource>
+  </DataSources>
+
+  <!-- ================================================================== -->
+  <!-- DATASETS                                                           -->
+  <!-- ================================================================== -->
+  <DataSets>
+    <DataSet Name="ComplianceChecklist">
+      <Query>
+        <DataSourceName>PowerBIDataset</DataSourceName>
+        <CommandType>DAX</CommandType>
+        <CommandText>
+          EVALUATE
+          CALCULATETABLE(
+            ADDCOLUMNS(
+              JointCommissionStandards,
+              "ComplianceStatus",
+                IF(
+                  JointCommissionStandards[is_compliant] = TRUE(),
+                  "PASS",
+                  "FAIL"
+                ),
+              "DaysSinceLastReview",
+                DATEDIFF(
+                  JointCommissionStandards[last_review_date],
+                  TODAY(),
+                  DAY
+                ),
+              "ReviewOverdue",
+                IF(
+                  DATEDIFF(JointCommissionStandards[last_review_date], TODAY(), DAY) > 365,
+                  "OVERDUE",
+                  "Current"
+                )
+            ),
+            JointCommissionStandards[review_year] = @ReviewYear
+          )
+        </CommandText>
+        <QueryParameters>
+          <QueryParameter Name="@ReviewYear">
+            <Value>=Parameters!ReviewYear.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+      </Query>
+      <Fields>
+        <Field Name="standard_id"><DataField>JointCommissionStandards[standard_id]</DataField></Field>
+        <Field Name="category"><DataField>JointCommissionStandards[category]</DataField></Field>
+        <Field Name="standard_code"><DataField>JointCommissionStandards[standard_code]</DataField></Field>
+        <Field Name="standard_description"><DataField>JointCommissionStandards[standard_description]</DataField></Field>
+        <Field Name="is_compliant"><DataField>JointCommissionStandards[is_compliant]</DataField></Field>
+        <Field Name="ComplianceStatus"><DataField>[ComplianceStatus]</DataField></Field>
+        <Field Name="last_review_date"><DataField>JointCommissionStandards[last_review_date]</DataField></Field>
+        <Field Name="DaysSinceLastReview"><DataField>[DaysSinceLastReview]</DataField></Field>
+        <Field Name="ReviewOverdue"><DataField>[ReviewOverdue]</DataField></Field>
+        <Field Name="findings"><DataField>JointCommissionStandards[findings]</DataField></Field>
+        <Field Name="corrective_action"><DataField>JointCommissionStandards[corrective_action]</DataField></Field>
+      </Fields>
+    </DataSet>
+
+    <DataSet Name="ComplianceSummary">
+      <Query>
+        <DataSourceName>PowerBIDataset</DataSourceName>
+        <CommandType>DAX</CommandType>
+        <CommandText>
+          EVALUATE
+          ROW(
+            "TotalStandards", COUNTROWS(JointCommissionStandards),
+            "PassCount", CALCULATE(COUNTROWS(JointCommissionStandards), JointCommissionStandards[is_compliant] = TRUE()),
+            "FailCount", CALCULATE(COUNTROWS(JointCommissionStandards), JointCommissionStandards[is_compliant] = FALSE()),
+            "ComplianceRate", DIVIDE(
+              CALCULATE(COUNTROWS(JointCommissionStandards), JointCommissionStandards[is_compliant] = TRUE()),
+              COUNTROWS(JointCommissionStandards)
+            ) * 100
+          )
+        </CommandText>
+      </Query>
+      <Fields>
+        <Field Name="TotalStandards"><DataField>[TotalStandards]</DataField></Field>
+        <Field Name="PassCount"><DataField>[PassCount]</DataField></Field>
+        <Field Name="FailCount"><DataField>[FailCount]</DataField></Field>
+        <Field Name="ComplianceRate"><DataField>[ComplianceRate]</DataField></Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+
+  <!-- ================================================================== -->
+  <!-- REPORT PARAMETERS                                                  -->
+  <!-- ================================================================== -->
+  <ReportParameters>
+    <ReportParameter Name="ReviewYear">
+      <DataType>Integer</DataType>
+      <Prompt>Review Year</Prompt>
+      <DefaultValue>
+        <Values>
+          <Value>=Year(Today())</Value>
+        </Values>
+      </DefaultValue>
+      <AllowBlank>false</AllowBlank>
+    </ReportParameter>
+  </ReportParameters>
+
+  <!-- ================================================================== -->
+  <!-- PAGE SETUP — Letter, portrait                                      -->
+  <!-- ================================================================== -->
+  <Page>
+    <PageHeight>11in</PageHeight>
+    <PageWidth>8.5in</PageWidth>
+    <LeftMargin>0.5in</LeftMargin>
+    <RightMargin>0.5in</RightMargin>
+    <TopMargin>0.75in</TopMargin>
+    <BottomMargin>0.75in</BottomMargin>
+    <Style>
+      <BackgroundColor>White</BackgroundColor>
+    </Style>
+  </Page>
+
+  <!-- ================================================================== -->
+  <!-- PAGE HEADER                                                        -->
+  <!-- ================================================================== -->
+  <PageHeader>
+    <Height>1.1in</Height>
+    <PrintOnFirstPage>true</PrintOnFirstPage>
+    <PrintOnLastPage>true</PrintOnLastPage>
+    <ReportItems>
+      <Textbox Name="ReportTitle">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0.4in</Height>
+        <Width>7.5in</Width>
+        <Value>Joint Commission Compliance Checklist</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>16pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+          <Color>#1A5276</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="FacilityInfo">
+        <Top>0.4in</Top>
+        <Left>0in</Left>
+        <Height>0.25in</Height>
+        <Width>4in</Width>
+        <Value>Clearwater Health System — Accreditation Review</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>10pt</FontSize>
+          <Color>#333333</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="ReviewYearLabel">
+        <Top>0.65in</Top>
+        <Left>0in</Left>
+        <Height>0.25in</Height>
+        <Width>3in</Width>
+        <Value>=&quot;Review Year: &quot; &amp; Parameters!ReviewYear.Value</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>10pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+        </Style>
+      </Textbox>
+      <Textbox Name="ComplianceRateBadge">
+        <Top>0.65in</Top>
+        <Left>4.5in</Left>
+        <Height>0.25in</Height>
+        <Width>3in</Width>
+        <Value>=&quot;Compliance Rate: &quot; &amp; Format(First(Fields!ComplianceRate.Value, &quot;ComplianceSummary&quot;), &quot;0.0&quot;) &amp; &quot;%&quot;</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>10pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+          <TextAlign>Right</TextAlign>
+          <Color>=IIF(First(Fields!ComplianceRate.Value, "ComplianceSummary") >= 95, "#006600",
+                  IIF(First(Fields!ComplianceRate.Value, "ComplianceSummary") >= 85, "#CC8800", "#CC0000"))</Color>
+        </Style>
+      </Textbox>
+      <Line Name="HeaderRule">
+        <Top>0.95in</Top>
+        <Left>0in</Left>
+        <Height>0in</Height>
+        <Width>7.5in</Width>
+        <Style>
+          <Border><Style>Solid</Style><Color>#1A5276</Color><Width>2pt</Width></Border>
+        </Style>
+      </Line>
+    </ReportItems>
+  </PageHeader>
+
+  <!-- ================================================================== -->
+  <!-- REPORT BODY                                                        -->
+  <!-- ================================================================== -->
+  <Body>
+    <Height>8in</Height>
+    <ReportItems>
+
+      <!-- Summary Counts -->
+      <Rectangle Name="SummaryCounts">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0.5in</Height>
+        <Width>7.5in</Width>
+        <ReportItems>
+          <Textbox Name="SummaryText">
+            <Top>0.1in</Top>
+            <Left>0in</Left>
+            <Height>0.3in</Height>
+            <Width>7.5in</Width>
+            <Value>=&quot;Total Standards: &quot; &amp; First(Fields!TotalStandards.Value, &quot;ComplianceSummary&quot;) &amp; &quot;    |    ✓ Pass: &quot; &amp; First(Fields!PassCount.Value, &quot;ComplianceSummary&quot;) &amp; &quot;    |    ✕ Fail: &quot; &amp; First(Fields!FailCount.Value, &quot;ComplianceSummary&quot;)</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>10pt</FontSize>
+              <BackgroundColor>#F0F4F8</BackgroundColor>
+              <PaddingLeft>8pt</PaddingLeft>
+              <PaddingTop>4pt</PaddingTop>
+              <Border><Style>Solid</Style><Color>#D5DBDB</Color><Width>1pt</Width></Border>
+            </Style>
+          </Textbox>
+        </ReportItems>
+      </Rectangle>
+
+      <!-- Compliance Checklist Tablix (grouped by category) -->
+      <Tablix Name="ComplianceTablix">
+        <Top>0.7in</Top>
+        <Left>0in</Left>
+        <Height>1.5in</Height>
+        <Width>7.5in</Width>
+        <DataSetName>ComplianceChecklist</DataSetName>
+        <TablixBody>
+          <TablixColumns>
+            <TablixColumn><Width>0.7in</Width></TablixColumn>
+            <TablixColumn><Width>1.1in</Width></TablixColumn>
+            <TablixColumn><Width>2.7in</Width></TablixColumn>
+            <TablixColumn><Width>0.8in</Width></TablixColumn>
+            <TablixColumn><Width>0.9in</Width></TablixColumn>
+            <TablixColumn><Width>1.3in</Width></TablixColumn>
+          </TablixColumns>
+          <TablixRows>
+            <!-- Category Group Header Row -->
+            <TablixRow>
+              <Height>0.35in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="CategoryHeader">
+                      <Value>=Fields!category.Value</Value>
+                      <ColSpan>6</ColSpan>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>10pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#1A5276</BackgroundColor>
+                        <PaddingLeft>6pt</PaddingLeft>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell/>
+                <TablixCell/>
+                <TablixCell/>
+                <TablixCell/>
+                <TablixCell/>
+              </TablixCells>
+            </TablixRow>
+            <!-- Column Header Row -->
+            <TablixRow>
+              <Height>0.3in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ColHeaderStatus">
+                      <Value>Status</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#D5E8D4</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#AAAAAA</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ColHeaderCode">
+                      <Value>Standard</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#D5E8D4</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#AAAAAA</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ColHeaderDesc">
+                      <Value>Description</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#D5E8D4</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#AAAAAA</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ColHeaderResult">
+                      <Value>Result</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#D5E8D4</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#AAAAAA</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ColHeaderReview">
+                      <Value>Last Review</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#D5E8D4</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#AAAAAA</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ColHeaderAction">
+                      <Value>Corrective Action</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#D5E8D4</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#AAAAAA</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <!-- Detail Row -->
+            <TablixRow>
+              <Height>0.35in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="PassFailIndicator">
+                      <Value>=IIF(Fields!ComplianceStatus.Value = "PASS", "✓ PASS", "✕ FAIL")</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <TextAlign>Center</TextAlign>
+                        <Color>=IIF(Fields!ComplianceStatus.Value = "PASS", "#006600", "#CC0000")</Color>
+                        <BackgroundColor>=IIF(Fields!ComplianceStatus.Value = "PASS", "#E6F5E6", "#FDE7E9")</BackgroundColor>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="StandardCode">
+                      <Value>=Fields!standard_code.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="StandardDescription">
+                      <CanGrow>true</CanGrow>
+                      <Value>=Fields!standard_description.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ComplianceResult">
+                      <Value>=Fields!ComplianceStatus.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <TextAlign>Center</TextAlign>
+                        <Color>=IIF(Fields!ComplianceStatus.Value = "PASS", "#006600", "#CC0000")</Color>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="LastReviewDate">
+                      <Value>=Format(Fields!last_review_date.Value, "MM/dd/yyyy")</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>8pt</FontSize>
+                        <TextAlign>Center</TextAlign>
+                        <Color>=IIF(Fields!ReviewOverdue.Value = "OVERDUE", "#CC0000", "#333333")</Color>
+                        <FontWeight>=IIF(Fields!ReviewOverdue.Value = "OVERDUE", "Bold", "Normal")</FontWeight>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="CorrectiveAction">
+                      <CanGrow>true</CanGrow>
+                      <Value>=IIF(Fields!ComplianceStatus.Value = "FAIL", Fields!corrective_action.Value, "—")</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>7pt</FontSize>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+        <TablixColumnHierarchy>
+          <TablixMembers>
+            <TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/>
+          </TablixMembers>
+        </TablixColumnHierarchy>
+        <TablixRowHierarchy>
+          <TablixMembers>
+            <!-- Category group -->
+            <TablixMember>
+              <Group Name="CategoryGroup">
+                <GroupExpressions>
+                  <GroupExpression>=Fields!category.Value</GroupExpression>
+                </GroupExpressions>
+              </Group>
+              <TablixMembers>
+                <TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember>
+                <TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember>
+                <TablixMember>
+                  <Group Name="DetailGroup"/>
+                </TablixMember>
+              </TablixMembers>
+            </TablixMember>
+          </TablixMembers>
+        </TablixRowHierarchy>
+        <RepeatColumnHeaders>true</RepeatColumnHeaders>
+      </Tablix>
+
+    </ReportItems>
+  </Body>
+
+  <!-- ================================================================== -->
+  <!-- PAGE FOOTER                                                        -->
+  <!-- ================================================================== -->
+  <PageFooter>
+    <Height>0.5in</Height>
+    <PrintOnFirstPage>true</PrintOnFirstPage>
+    <PrintOnLastPage>true</PrintOnLastPage>
+    <ReportItems>
+      <Line Name="FooterRule">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0in</Height>
+        <Width>7.5in</Width>
+        <Style>
+          <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>1pt</Width></Border>
+        </Style>
+      </Line>
+      <Textbox Name="Confidentiality">
+        <Top>0.1in</Top>
+        <Left>0in</Left>
+        <Height>0.2in</Height>
+        <Width>4in</Width>
+        <Value>CONFIDENTIAL — Joint Commission Accreditation Document</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>7pt</FontSize>
+          <FontStyle>Italic</FontStyle>
+          <Color>#999999</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="PageNumber">
+        <Top>0.1in</Top>
+        <Left>5.5in</Left>
+        <Height>0.2in</Height>
+        <Width>2in</Width>
+        <Value>=&quot;Page &quot; &amp; Globals!PageNumber &amp; &quot; of &quot; &amp; Globals!TotalPages</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>8pt</FontSize>
+          <TextAlign>Right</TextAlign>
+          <Color>#666666</Color>
+        </Style>
+      </Textbox>
+    </ReportItems>
+  </PageFooter>
+
+</Report>

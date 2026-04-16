@@ -1,0 +1,610 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Clearwater Health System — CMS Regulatory Submission Report (Paginated)
+  ========================================================================
+  Power BI Paginated Report (RDL) — compatible with Power BI Report Builder.
+
+  Replaces: SSRS-Reports/Clinical/QualityMetrics.rdl (for regulatory submission)
+  Data Source: Power BI semantic model (not direct SQL connection)
+  Purpose: Pixel-perfect CMS quality metrics report for regulatory filing.
+           Must produce consistent PDF/print output for official submissions.
+-->
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+        xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <AutoRefresh>0</AutoRefresh>
+
+  <Description>CMS Quality Metrics Regulatory Submission — Clearwater Health System</Description>
+  <Author>Clearwater Health BI Team</Author>
+
+  <!-- ================================================================== -->
+  <!-- DATA SOURCE — Power BI Semantic Model                              -->
+  <!-- ================================================================== -->
+  <DataSources>
+    <DataSource Name="PowerBIDataset">
+      <ConnectionProperties>
+        <DataProvider>PBIDATASET</DataProvider>
+        <ConnectString>Data Source=powerbi://api.powerbi.com/v1.0/myorg/ClearwaterHealth;Initial Catalog=ClearwaterHealthModel</ConnectString>
+      </ConnectionProperties>
+    </DataSource>
+  </DataSources>
+
+  <!-- ================================================================== -->
+  <!-- DATASETS — DAX queries against the semantic model                  -->
+  <!-- ================================================================== -->
+  <DataSets>
+    <DataSet Name="QualityMetricsData">
+      <Query>
+        <DataSourceName>PowerBIDataset</DataSourceName>
+        <CommandType>DAX</CommandType>
+        <CommandText>
+          EVALUATE
+          CALCULATETABLE(
+            ADDCOLUMNS(
+              CmsQualityMetrics,
+              "StatusColor",
+                SWITCH(
+                  TRUE(),
+                  CmsQualityMetrics[actual_value] >= CmsQualityMetrics[target_value], "Green",
+                  CmsQualityMetrics[actual_value] >= CmsQualityMetrics[target_value] * 0.9, "Yellow",
+                  "Red"
+                ),
+              "VariancePct",
+                DIVIDE(
+                  CmsQualityMetrics[actual_value] - CmsQualityMetrics[target_value],
+                  CmsQualityMetrics[target_value]
+                ) * 100
+            ),
+            CmsQualityMetrics[reporting_period] = @ReportDate
+          )
+        </CommandText>
+        <QueryParameters>
+          <QueryParameter Name="@ReportDate">
+            <Value>=Parameters!ReportDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+      </Query>
+      <Fields>
+        <Field Name="metric_id"><DataField>CmsQualityMetrics[metric_id]</DataField></Field>
+        <Field Name="metric_name"><DataField>CmsQualityMetrics[metric_name]</DataField></Field>
+        <Field Name="actual_value"><DataField>CmsQualityMetrics[actual_value]</DataField></Field>
+        <Field Name="target_value"><DataField>CmsQualityMetrics[target_value]</DataField></Field>
+        <Field Name="StatusColor"><DataField>[StatusColor]</DataField></Field>
+        <Field Name="VariancePct"><DataField>[VariancePct]</DataField></Field>
+      </Fields>
+    </DataSet>
+
+    <DataSet Name="SummaryMetrics">
+      <Query>
+        <DataSourceName>PowerBIDataset</DataSourceName>
+        <CommandType>DAX</CommandType>
+        <CommandText>
+          EVALUATE
+          ROW(
+            "TotalMetrics", COUNTROWS(CmsQualityMetrics),
+            "MetricsMeetingTarget", [Metrics Meeting Target],
+            "MetricsAtWarning", [Metrics At Warning],
+            "MetricsBelowTarget", [Metrics Below Target],
+            "QualityScorePct", [Quality Score Percent]
+          )
+        </CommandText>
+      </Query>
+      <Fields>
+        <Field Name="TotalMetrics"><DataField>[TotalMetrics]</DataField></Field>
+        <Field Name="MetricsMeetingTarget"><DataField>[MetricsMeetingTarget]</DataField></Field>
+        <Field Name="MetricsAtWarning"><DataField>[MetricsAtWarning]</DataField></Field>
+        <Field Name="MetricsBelowTarget"><DataField>[MetricsBelowTarget]</DataField></Field>
+        <Field Name="QualityScorePct"><DataField>[QualityScorePct]</DataField></Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+
+  <!-- ================================================================== -->
+  <!-- REPORT PARAMETERS                                                  -->
+  <!-- ================================================================== -->
+  <ReportParameters>
+    <ReportParameter Name="ReportDate">
+      <DataType>String</DataType>
+      <Prompt>Reporting Period (e.g., 2026-Q1)</Prompt>
+      <AllowBlank>false</AllowBlank>
+    </ReportParameter>
+  </ReportParameters>
+
+  <!-- ================================================================== -->
+  <!-- PAGE SETUP — Letter size, portrait, regulatory margins             -->
+  <!-- ================================================================== -->
+  <Page>
+    <PageHeight>11in</PageHeight>
+    <PageWidth>8.5in</PageWidth>
+    <LeftMargin>0.75in</LeftMargin>
+    <RightMargin>0.75in</RightMargin>
+    <TopMargin>1in</TopMargin>
+    <BottomMargin>1in</BottomMargin>
+    <Style>
+      <BackgroundColor>White</BackgroundColor>
+    </Style>
+  </Page>
+
+  <!-- ================================================================== -->
+  <!-- PAGE HEADER                                                        -->
+  <!-- ================================================================== -->
+  <PageHeader>
+    <Height>1.2in</Height>
+    <PrintOnFirstPage>true</PrintOnFirstPage>
+    <PrintOnLastPage>true</PrintOnLastPage>
+    <ReportItems>
+      <Textbox Name="ReportTitle">
+        <CanGrow>false</CanGrow>
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0.4in</Height>
+        <Width>7in</Width>
+        <Value>CMS Quality Metrics — Regulatory Submission</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>16pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+          <Color>#003366</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="FacilityName">
+        <Top>0.4in</Top>
+        <Left>0in</Left>
+        <Height>0.25in</Height>
+        <Width>4in</Width>
+        <Value>Clearwater Health System — CMS Provider #123456</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>10pt</FontSize>
+          <Color>#333333</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="ReportPeriodLabel">
+        <Top>0.65in</Top>
+        <Left>0in</Left>
+        <Height>0.25in</Height>
+        <Width>4in</Width>
+        <Value>=&quot;Reporting Period: &quot; &amp; Parameters!ReportDate.Value</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>10pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+        </Style>
+      </Textbox>
+      <Textbox Name="GeneratedDate">
+        <Top>0.65in</Top>
+        <Left>4.5in</Left>
+        <Height>0.25in</Height>
+        <Width>2.5in</Width>
+        <Value>=&quot;Generated: &quot; &amp; Format(Today(), &quot;MMMM dd, yyyy&quot;)</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>9pt</FontSize>
+          <TextAlign>Right</TextAlign>
+          <Color>#666666</Color>
+        </Style>
+      </Textbox>
+      <Line Name="HeaderRule">
+        <Top>1in</Top>
+        <Left>0in</Left>
+        <Height>0in</Height>
+        <Width>7in</Width>
+        <Style>
+          <Border><Style>Solid</Style><Color>#003366</Color><Width>2pt</Width></Border>
+        </Style>
+      </Line>
+    </ReportItems>
+  </PageHeader>
+
+  <!-- ================================================================== -->
+  <!-- REPORT BODY                                                        -->
+  <!-- ================================================================== -->
+  <Body>
+    <Height>7.5in</Height>
+    <ReportItems>
+
+      <!-- Summary Section -->
+      <Rectangle Name="SummarySection">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0.8in</Height>
+        <Width>7in</Width>
+        <ReportItems>
+          <Textbox Name="SummaryTitle">
+            <Top>0in</Top>
+            <Left>0in</Left>
+            <Height>0.3in</Height>
+            <Width>7in</Width>
+            <Value>Executive Summary</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>12pt</FontSize>
+              <FontWeight>Bold</FontWeight>
+              <Color>#003366</Color>
+              <PaddingBottom>4pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="QualityScoreSummary">
+            <Top>0.35in</Top>
+            <Left>0in</Left>
+            <Height>0.3in</Height>
+            <Width>7in</Width>
+            <Value>=&quot;Overall Quality Score: &quot; &amp; Format(First(Fields!QualityScorePct.Value, &quot;SummaryMetrics&quot;), &quot;0.0&quot;) &amp; &quot;%  |  Meeting Target: &quot; &amp; First(Fields!MetricsMeetingTarget.Value, &quot;SummaryMetrics&quot;) &amp; &quot;  |  Warning: &quot; &amp; First(Fields!MetricsAtWarning.Value, &quot;SummaryMetrics&quot;) &amp; &quot;  |  Below Target: &quot; &amp; First(Fields!MetricsBelowTarget.Value, &quot;SummaryMetrics&quot;)</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>10pt</FontSize>
+            </Style>
+          </Textbox>
+        </ReportItems>
+      </Rectangle>
+
+      <!-- Quality Metrics Detail Tablix -->
+      <Tablix Name="QualityMetricsTablix">
+        <Top>1in</Top>
+        <Left>0in</Left>
+        <Height>1in</Height>
+        <Width>7in</Width>
+        <DataSetName>QualityMetricsData</DataSetName>
+        <TablixBody>
+          <TablixColumns>
+            <TablixColumn><Width>0.6in</Width></TablixColumn>
+            <TablixColumn><Width>2.4in</Width></TablixColumn>
+            <TablixColumn><Width>1in</Width></TablixColumn>
+            <TablixColumn><Width>1in</Width></TablixColumn>
+            <TablixColumn><Width>1in</Width></TablixColumn>
+            <TablixColumn><Width>1in</Width></TablixColumn>
+          </TablixColumns>
+          <TablixRows>
+            <!-- Header Row -->
+            <TablixRow>
+              <Height>0.35in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HeaderID">
+                      <Value>ID</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#003366</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HeaderMetricName">
+                      <Value>Quality Metric</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#003366</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HeaderActual">
+                      <Value>Actual</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#003366</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HeaderTarget">
+                      <Value>Target</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#003366</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HeaderVariance">
+                      <Value>Variance %</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#003366</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="HeaderStatus">
+                      <Value>Status</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#003366</BackgroundColor>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>4pt</PaddingTop>
+                        <PaddingBottom>4pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>White</Color><Width>1pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <!-- Detail Row -->
+            <TablixRow>
+              <Height>0.3in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="MetricID">
+                      <Value>=Fields!metric_id.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <TextAlign>Center</TextAlign>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F2F2", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="MetricName">
+                      <Value>=Fields!metric_name.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F2F2", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ActualValue">
+                      <Value>=Fields!actual_value.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <TextAlign>Center</TextAlign>
+                        <Format>0.00</Format>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F2F2", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TargetValue">
+                      <Value>=Fields!target_value.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <TextAlign>Center</TextAlign>
+                        <Format>0.00</Format>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F2F2", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="VariancePct">
+                      <Value>=Fields!VariancePct.Value</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <TextAlign>Center</TextAlign>
+                        <Format>+0.0%;-0.0%;0.0%</Format>
+                        <FontWeight>=IIF(Fields!VariancePct.Value &lt; 0, "Bold", "Normal")</FontWeight>
+                        <Color>=IIF(Fields!VariancePct.Value &lt; 0, "#CC0000", "#006600")</Color>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                        <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F2F2F2", "White")</BackgroundColor>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="StatusIndicator">
+                      <Value>=IIF(Fields!StatusColor.Value = "Green", "● PASS",
+                              IIF(Fields!StatusColor.Value = "Yellow", "▲ WARN", "✕ FAIL"))</Value>
+                      <Style>
+                        <FontFamily>Arial</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <TextAlign>Center</TextAlign>
+                        <Color>=Switch(
+                          Fields!StatusColor.Value = "Green", "#006600",
+                          Fields!StatusColor.Value = "Yellow", "#CC8800",
+                          True, "#CC0000"
+                        )</Color>
+                        <BackgroundColor>=Switch(
+                          Fields!StatusColor.Value = "Green", "#E6F5E6",
+                          Fields!StatusColor.Value = "Yellow", "#FFF8E1",
+                          True, "#FDE7E9"
+                        )</BackgroundColor>
+                        <PaddingTop>3pt</PaddingTop>
+                        <PaddingBottom>3pt</PaddingBottom>
+                        <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>0.5pt</Width></Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+        <TablixColumnHierarchy>
+          <TablixMembers>
+            <TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/><TablixMember/>
+          </TablixMembers>
+        </TablixColumnHierarchy>
+        <TablixRowHierarchy>
+          <TablixMembers>
+            <TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember>
+            <TablixMember>
+              <Group Name="DetailGroup"/>
+            </TablixMember>
+          </TablixMembers>
+        </TablixRowHierarchy>
+        <RepeatColumnHeaders>true</RepeatColumnHeaders>
+      </Tablix>
+
+      <!-- Certification Block -->
+      <Rectangle Name="CertificationBlock">
+        <Top>5.5in</Top>
+        <Left>0in</Left>
+        <Height>1.5in</Height>
+        <Width>7in</Width>
+        <ReportItems>
+          <Textbox Name="CertificationTitle">
+            <Top>0in</Top>
+            <Left>0in</Left>
+            <Height>0.3in</Height>
+            <Width>7in</Width>
+            <Value>Certification</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>11pt</FontSize>
+              <FontWeight>Bold</FontWeight>
+              <Color>#003366</Color>
+              <BorderBottom><Style>Solid</Style><Color>#003366</Color><Width>1pt</Width></BorderBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="CertificationText">
+            <Top>0.4in</Top>
+            <Left>0in</Left>
+            <Height>0.5in</Height>
+            <Width>7in</Width>
+            <CanGrow>true</CanGrow>
+            <Value>I certify that the quality metrics reported herein are accurate and complete to the best of my knowledge, prepared in accordance with CMS reporting requirements and the Clearwater Health System quality assurance protocols.</Value>
+            <Style>
+              <FontFamily>Arial</FontFamily>
+              <FontSize>9pt</FontSize>
+              <Color>#333333</Color>
+            </Style>
+          </Textbox>
+          <Textbox Name="SignatureLine">
+            <Top>1in</Top>
+            <Left>0in</Left>
+            <Height>0.25in</Height>
+            <Width>3.5in</Width>
+            <Value>________________________________________</Value>
+            <Style><FontFamily>Arial</FontFamily><FontSize>9pt</FontSize></Style>
+          </Textbox>
+          <Textbox Name="SignatureLabel">
+            <Top>1.25in</Top>
+            <Left>0in</Left>
+            <Height>0.2in</Height>
+            <Width>3.5in</Width>
+            <Value>Quality Director Signature / Date</Value>
+            <Style><FontFamily>Arial</FontFamily><FontSize>8pt</FontSize><Color>#666666</Color></Style>
+          </Textbox>
+        </ReportItems>
+      </Rectangle>
+
+    </ReportItems>
+  </Body>
+
+  <!-- ================================================================== -->
+  <!-- PAGE FOOTER                                                        -->
+  <!-- ================================================================== -->
+  <PageFooter>
+    <Height>0.5in</Height>
+    <PrintOnFirstPage>true</PrintOnFirstPage>
+    <PrintOnLastPage>true</PrintOnLastPage>
+    <ReportItems>
+      <Line Name="FooterRule">
+        <Top>0in</Top>
+        <Left>0in</Left>
+        <Height>0in</Height>
+        <Width>7in</Width>
+        <Style>
+          <Border><Style>Solid</Style><Color>#CCCCCC</Color><Width>1pt</Width></Border>
+        </Style>
+      </Line>
+      <Textbox Name="Confidentiality">
+        <Top>0.1in</Top>
+        <Left>0in</Left>
+        <Height>0.2in</Height>
+        <Width>4in</Width>
+        <Value>CONFIDENTIAL — For CMS regulatory submission only</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>7pt</FontSize>
+          <FontStyle>Italic</FontStyle>
+          <Color>#999999</Color>
+        </Style>
+      </Textbox>
+      <Textbox Name="PageNumber">
+        <Top>0.1in</Top>
+        <Left>5in</Left>
+        <Height>0.2in</Height>
+        <Width>2in</Width>
+        <Value>=&quot;Page &quot; &amp; Globals!PageNumber &amp; &quot; of &quot; &amp; Globals!TotalPages</Value>
+        <Style>
+          <FontFamily>Arial</FontFamily>
+          <FontSize>8pt</FontSize>
+          <TextAlign>Right</TextAlign>
+          <Color>#666666</Color>
+        </Style>
+      </Textbox>
+    </ReportItems>
+  </PageFooter>
+
+</Report>
