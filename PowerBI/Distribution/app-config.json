@@ -1,0 +1,209 @@
+{
+  "$schema": "https://api.powerbi.com/v1.0/apps/schema.json",
+  "description": "Power BI App configuration for Clearwater Health Analytics. Defines navigation structure and audience-based access, replacing legacy SSRS email subscriptions and Crystal Reports client-side distribution.",
+  "app": {
+    "name": "Clearwater Health Analytics",
+    "description": "Enterprise analytics app for Clearwater Health System — financial, clinical, quality, and operational reports consolidated from legacy SSRS and Crystal Reports.",
+    "sourceWorkspace": "Clearwater Health Analytics",
+    "contactEmail": "bi-admins@clearwaterhealth.org",
+    "allowUsersToConnectToDatasets": false,
+    "allowUsersToMakeCopies": false
+  },
+  "navigation": {
+    "description": "Report navigation organized by audience/department to replace the legacy SSRS folder hierarchy (/RevenueCycle/, /Clinical/, /Executive/) and Crystal Reports file-share structure.",
+    "sections": [
+      {
+        "name": "Financial",
+        "displayName": "Financial Reports",
+        "icon": "currency",
+        "description": "Revenue cycle and financial reporting — replaces SSRS /RevenueCycle/ folder",
+        "items": [
+          {
+            "type": "report",
+            "reportName": "DailyRevenue",
+            "displayName": "Daily Revenue",
+            "description": "Daily revenue summary by department with drill-through to detail. Migrated from SSRS-Reports/RevenueCycle/DailyRevenue.rdl.",
+            "sourceFile": "PowerBI/Reports/DailyRevenue.json"
+          },
+          {
+            "type": "paginatedReport",
+            "reportName": "MonthEndFinancial",
+            "displayName": "Month-End Financial (Paginated)",
+            "description": "Pixel-perfect month-end financial report for printing and PDF distribution. Migrated from SSRS with preserved formatting.",
+            "sourceFile": "PowerBI/PaginatedReports/MonthEndFinancial.rdl"
+          }
+        ]
+      },
+      {
+        "name": "Clinical",
+        "displayName": "Clinical Reports",
+        "icon": "health",
+        "description": "Patient care, census, and surgical outcomes — replaces Crystal Reports client application and SSRS /Clinical/ folder",
+        "items": [
+          {
+            "type": "report",
+            "reportName": "PatientCensus",
+            "displayName": "Patient Census",
+            "description": "Real-time ward occupancy and patient census. Migrated from CrystalReports/PatientCensus.rpt. RLS enforces physician-level patient filtering server-side (HIPAA improvement over legacy client-side filtering).",
+            "sourceFile": "PowerBI/Reports/PatientCensus.json"
+          },
+          {
+            "type": "report",
+            "reportName": "SurgicalOutcomes",
+            "displayName": "Surgical Outcomes",
+            "description": "Surgical procedure outcomes with complication rate analysis. Migrated from CrystalReports/SurgicalOutcomes.rpt. Eliminates N+1 sub-report pattern.",
+            "sourceFile": "PowerBI/Reports/SurgicalOutcomes.json"
+          }
+        ]
+      },
+      {
+        "name": "Regulatory",
+        "displayName": "Regulatory & Compliance",
+        "icon": "compliance",
+        "description": "CMS quality metrics and regulatory submission reports — replaces SSRS /Clinical/QualityMetrics and paginated regulatory filings",
+        "items": [
+          {
+            "type": "report",
+            "reportName": "QualityMetrics",
+            "displayName": "CMS Quality Metrics",
+            "description": "CMS quality metrics dashboard with KPI cards and conditional formatting. Migrated from SSRS-Reports/Clinical/QualityMetrics.rdl.",
+            "sourceFile": "PowerBI/Reports/QualityMetrics.json"
+          },
+          {
+            "type": "paginatedReport",
+            "reportName": "JointCommission",
+            "displayName": "Joint Commission Report (Paginated)",
+            "description": "Pixel-perfect Joint Commission regulatory submission with required formatting and signature blocks.",
+            "sourceFile": "PowerBI/PaginatedReports/JointCommission.rdl"
+          },
+          {
+            "type": "paginatedReport",
+            "reportName": "CMSSubmission",
+            "displayName": "CMS Submission Report (Paginated)",
+            "description": "CMS regulatory submission report with exact layout requirements for government filing.",
+            "sourceFile": "PowerBI/PaginatedReports/CMSSubmission.rdl"
+          }
+        ]
+      },
+      {
+        "name": "Executive",
+        "displayName": "Executive Dashboard",
+        "icon": "dashboard",
+        "description": "Cross-functional executive view — replaces SSRS /Executive/ folder that required Domain Admins access",
+        "items": [
+          {
+            "type": "report",
+            "reportName": "DailyRevenue",
+            "displayName": "Revenue Overview",
+            "description": "All-department revenue view for executive leadership. Same report as Financial > Daily Revenue but executives see all departments via ExecutiveRole RLS.",
+            "sourceFile": "PowerBI/Reports/DailyRevenue.json"
+          },
+          {
+            "type": "report",
+            "reportName": "QualityMetrics",
+            "displayName": "Quality Scorecard",
+            "description": "Organization-wide quality metrics for executive review. Same report as Regulatory > CMS Quality Metrics but included here for executive navigation convenience.",
+            "sourceFile": "PowerBI/Reports/QualityMetrics.json"
+          },
+          {
+            "type": "report",
+            "reportName": "PatientCensus",
+            "displayName": "Census Overview",
+            "description": "All-ward patient census overview. Executives see all patients via ExecutiveRole RLS.",
+            "sourceFile": "PowerBI/Reports/PatientCensus.json"
+          },
+          {
+            "type": "report",
+            "reportName": "SurgicalOutcomes",
+            "displayName": "Surgical Performance",
+            "description": "Organization-wide surgical outcomes and complication rates.",
+            "sourceFile": "PowerBI/Reports/SurgicalOutcomes.json"
+          }
+        ]
+      }
+    ]
+  },
+  "audiences": [
+    {
+      "name": "ClinicalStaff",
+      "displayName": "Clinical Staff",
+      "description": "Physicians, nurses, and clinical analysts. Replaces Crystal Reports viewer access and SSRS /Clinical/ Browse permissions.",
+      "azureADGroups": [
+        "physicians@clearwaterhealth.org",
+        "nursing-supervisors@clearwaterhealth.org",
+        "clinical-analysts@clearwaterhealth.org"
+      ],
+      "reportAccess": [
+        {
+          "section": "Clinical",
+          "reports": ["PatientCensus", "SurgicalOutcomes"]
+        }
+      ],
+      "rlsEnforcement": "PhysicianRole — physicians see only their patients; nursing supervisors see all wards via ExecutiveRole"
+    },
+    {
+      "name": "FinanceStaff",
+      "displayName": "Finance Staff",
+      "description": "CFO, finance analysts, and department managers. Replaces SSRS /RevenueCycle/ Browse permissions and Daily Revenue email subscription list.",
+      "azureADGroups": [
+        "cfo@clearwaterhealth.org",
+        "finance-team@clearwaterhealth.org",
+        "finance-analysts@clearwaterhealth.org"
+      ],
+      "reportAccess": [
+        {
+          "section": "Financial",
+          "reports": ["DailyRevenue", "MonthEndFinancial"]
+        }
+      ],
+      "rlsEnforcement": "DepartmentRole — department managers see their department only; CFO sees all via ExecutiveRole"
+    },
+    {
+      "name": "RegulatoryCompliance",
+      "displayName": "Regulatory & Compliance",
+      "description": "Quality director, compliance officers, and regulatory analysts. Replaces SSRS /Clinical/ Browse permissions for quality reports and monthly Excel subscription distribution.",
+      "azureADGroups": [
+        "quality-director@clearwaterhealth.org",
+        "compliance@clearwaterhealth.org"
+      ],
+      "reportAccess": [
+        {
+          "section": "Regulatory",
+          "reports": ["QualityMetrics", "JointCommission", "CMSSubmission"]
+        }
+      ],
+      "rlsEnforcement": "ExecutiveRole — unrestricted access to all quality and compliance data"
+    },
+    {
+      "name": "ExecutiveLeadership",
+      "displayName": "Executive Leadership",
+      "description": "C-suite executives with full cross-functional access. Replaces SSRS Domain Admins full-control access and Crystal Reports direct viewer access.",
+      "azureADGroups": [
+        "cfo@clearwaterhealth.org",
+        "ceo@clearwaterhealth.org",
+        "cmo@clearwaterhealth.org",
+        "vp-finance@clearwaterhealth.org",
+        "quality-director@clearwaterhealth.org"
+      ],
+      "reportAccess": [
+        {
+          "section": "Executive",
+          "reports": ["DailyRevenue", "QualityMetrics", "PatientCensus", "SurgicalOutcomes"]
+        },
+        {
+          "section": "Financial",
+          "reports": ["DailyRevenue", "MonthEndFinancial"]
+        },
+        {
+          "section": "Regulatory",
+          "reports": ["QualityMetrics", "JointCommission", "CMSSubmission"]
+        },
+        {
+          "section": "Clinical",
+          "reports": ["PatientCensus", "SurgicalOutcomes"]
+        }
+      ],
+      "rlsEnforcement": "ExecutiveRole — no data restrictions"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://api.powerbi.com/v1.0/workspaces/schema.json",
+  "description": "Power BI workspace configuration for Clearwater Health Analytics. Replaces legacy SSRS folder-based permissions and Crystal Reports file-share distribution with a centralized Power BI workspace.",
+  "workspace": {
+    "name": "Clearwater Health Analytics",
+    "description": "Consolidated reporting workspace for Clearwater Health System — migrated from SSRS 2016 and Crystal Reports. Contains interactive reports, paginated reports, the shared semantic model, and deployment pipelines.",
+    "capacityType": "Premium Per User",
+    "defaultDatasetStorageFormat": "Large",
+    "contactList": [
+      "bi-admins@clearwaterhealth.org"
+    ]
+  },
+  "roles": [
+    {
+      "role": "Admin",
+      "description": "Full workspace control — manage members, publish content, configure pipelines, manage gateway connections. Replaces SSRS Content Manager role and Crystal Reports IT administrator access.",
+      "permissions": [
+        "manage_workspace_access",
+        "publish_content",
+        "delete_content",
+        "configure_datasets",
+        "manage_gateway_connections",
+        "create_deployment_pipelines",
+        "manage_subscriptions_for_others"
+      ],
+      "members": [
+        {
+          "type": "azureADGroup",
+          "identity": "bi-admins@clearwaterhealth.org",
+          "displayName": "BI Administrators",
+          "legacyEquivalent": "CLEARWATER\\Domain Admins — SSRS Content Manager on all folders; Crystal Reports IT admin with .rpt file-share write access"
+        }
+      ]
+    },
+    {
+      "role": "Member",
+      "description": "Publish and edit reports, manage personal subscriptions, share reports within the workspace. Replaces SSRS Publisher role on /RevenueCycle/ and /Clinical/ folders.",
+      "permissions": [
+        "publish_content",
+        "edit_reports",
+        "create_subscriptions",
+        "share_reports",
+        "build_on_datasets"
+      ],
+      "members": [
+        {
+          "type": "azureADGroup",
+          "identity": "bi-developers@clearwaterhealth.org",
+          "displayName": "BI Developers",
+          "legacyEquivalent": "CLEARWATER\\SSRS_Publishers — published .rdl files to SSRS report server"
+        },
+        {
+          "type": "azureADGroup",
+          "identity": "finance-analysts@clearwaterhealth.org",
+          "displayName": "Finance Analysts",
+          "legacyEquivalent": "CLEARWATER\\Finance_All — had SSRS Publisher role on /RevenueCycle/ for maintaining revenue reports"
+        }
+      ]
+    },
+    {
+      "role": "Contributor",
+      "description": "Create and edit reports using the shared semantic model but cannot publish datasets or manage access. Replaces SSRS Report Builder role for department-level report authors.",
+      "permissions": [
+        "create_reports",
+        "edit_own_reports",
+        "create_subscriptions",
+        "build_on_datasets"
+      ],
+      "members": [
+        {
+          "type": "azureADGroup",
+          "identity": "clinical-analysts@clearwaterhealth.org",
+          "displayName": "Clinical Analysts",
+          "legacyEquivalent": "CLEARWATER\\Clinical_Staff — had SSRS Report Builder access on /Clinical/ folder for ad-hoc quality reports"
+        },
+        {
+          "type": "azureADGroup",
+          "identity": "dept-report-authors@clearwaterhealth.org",
+          "displayName": "Department Report Authors",
+          "legacyEquivalent": "Department managers who created ad-hoc Crystal Reports using the shared Oracle REPORTS_USER connection"
+        }
+      ]
+    },
+    {
+      "role": "Viewer",
+      "description": "View and interact with published reports, create personal subscriptions, export data where allowed. Replaces SSRS Browser role and Crystal Reports viewer access.",
+      "permissions": [
+        "view_reports",
+        "interact_with_reports",
+        "create_personal_subscriptions",
+        "export_data"
+      ],
+      "members": [
+        {
+          "type": "azureADGroup",
+          "identity": "finance-team@clearwaterhealth.org",
+          "displayName": "Finance Team",
+          "legacyEquivalent": "finance-team@clearwaterhealth.org — SSRS email subscription recipient for Daily Revenue PDF"
+        },
+        {
+          "type": "azureADGroup",
+          "identity": "nursing-supervisors@clearwaterhealth.org",
+          "displayName": "Nursing Supervisors",
+          "legacyEquivalent": "nursing-supervisors@clearwaterhealth.org — SSRS email subscription recipient for Patient Census PDF (3×/day)"
+        },
+        {
+          "type": "azureADGroup",
+          "identity": "compliance@clearwaterhealth.org",
+          "displayName": "Compliance Team",
+          "legacyEquivalent": "compliance@clearwaterhealth.org — SSRS email subscription recipient for Quality Metrics Excel (monthly)"
+        },
+        {
+          "type": "azureADGroup",
+          "identity": "physicians@clearwaterhealth.org",
+          "displayName": "Physicians",
+          "legacyEquivalent": "Crystal Reports viewer — PatientCensus.rpt and SurgicalOutcomes.rpt via client application"
+        }
+      ]
+    }
+  ],
+  "legacyDistributionGroupMapping": {
+    "description": "Maps legacy email distribution groups from Subscriptions/SubscriptionConfig.xml to Power BI workspace roles.",
+    "mappings": [
+      {
+        "legacyGroup": "cfo@clearwaterhealth.org",
+        "legacyUsage": "Daily Revenue PDF subscription recipient",
+        "workspaceRole": "Viewer",
+        "rlsRole": "ExecutiveRole",
+        "notes": "CFO also has Admin-level visibility via ExecutiveRole RLS — sees all departments"
+      },
+      {
+        "legacyGroup": "finance-team@clearwaterhealth.org",
+        "legacyUsage": "Daily Revenue PDF subscription recipient",
+        "workspaceRole": "Viewer",
+        "rlsRole": "DepartmentRole",
+        "notes": "Finance team members see data scoped by their department via RLS"
+      },
+      {
+        "legacyGroup": "quality-director@clearwaterhealth.org",
+        "legacyUsage": "Quality Metrics Excel subscription recipient (monthly)",
+        "workspaceRole": "Viewer",
+        "rlsRole": "ExecutiveRole",
+        "notes": "Quality Director has unrestricted access to all quality metrics"
+      },
+      {
+        "legacyGroup": "compliance@clearwaterhealth.org",
+        "legacyUsage": "Quality Metrics Excel subscription recipient (monthly)",
+        "workspaceRole": "Viewer",
+        "rlsRole": "ExecutiveRole",
+        "notes": "Compliance officers need full metrics for regulatory reporting"
+      },
+      {
+        "legacyGroup": "nursing-supervisors@clearwaterhealth.org",
+        "legacyUsage": "Patient Census PDF subscription recipient (3×/day)",
+        "workspaceRole": "Viewer",
+        "rlsRole": "ExecutiveRole",
+        "notes": "Nursing supervisors need all-ward visibility for staffing decisions"
+      }
+    ]
+  },
+  "gatewayConfiguration": {
+    "gatewayName": "Clearwater-OnPremises-Gateway",
+    "description": "On-premises data gateway for Azure SQL connectivity during hybrid transition period. Will be removed once all data sources are fully migrated to Azure SQL.",
+    "dataSources": [
+      {
+        "name": "AzureSQL-ClearwaterHealth",
+        "type": "AzureSQL",
+        "server": "clearwater-sql.database.windows.net",
+        "database": "ClearwaterHealth",
+        "authentication": "OAuth2",
+        "scheduledRefresh": "Every 1 hour"
+      }
+    ]
+  }
+}

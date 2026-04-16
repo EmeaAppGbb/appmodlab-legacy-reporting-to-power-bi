@@ -1,0 +1,294 @@
+{
+  "$schema": "https://api.powerbi.com/v1.0/deploymentPipelines/schema.json",
+  "description": "Power BI deployment pipeline configuration for Clearwater Health Analytics. Defines Dev → Test → Prod promotion stages for reports, semantic model, and paginated reports. Replaces the legacy manual SSRS .rdl file copy and Crystal Reports file-share deployment.",
+  "pipeline": {
+    "name": "Clearwater Health Analytics Pipeline",
+    "description": "Three-stage deployment pipeline for promoting Power BI content from development through testing to production. Ensures quality gates are met before reports reach end users."
+  },
+  "stages": [
+    {
+      "name": "Development",
+      "order": 0,
+      "workspace": "Clearwater Health Analytics — Dev",
+      "description": "Development workspace for building and iterating on reports. BI developers publish here from Power BI Desktop. Replaces the legacy pattern of developing .rdl files locally and testing against the dev SSRS server.",
+      "purpose": [
+        "Report development and iteration",
+        "Semantic model schema changes and DAX measure development",
+        "New paginated report authoring in Report Builder",
+        "Integration testing with refreshed development dataset"
+      ],
+      "dataSource": {
+        "server": "clearwater-sql-dev.database.windows.net",
+        "database": "ClearwaterHealth_Dev",
+        "description": "Development Azure SQL database with anonymized patient data (no PHI). Refreshed weekly from production with data masking applied.",
+        "refreshSchedule": "Daily at 2:00 AM Eastern"
+      },
+      "accessPolicy": {
+        "roles": [
+          {
+            "role": "Admin",
+            "members": ["bi-admins@clearwaterhealth.org"]
+          },
+          {
+            "role": "Member",
+            "members": [
+              "bi-developers@clearwaterhealth.org",
+              "finance-analysts@clearwaterhealth.org",
+              "clinical-analysts@clearwaterhealth.org"
+            ]
+          }
+        ],
+        "notes": "No Viewer role in Dev — only developers and analysts access this workspace"
+      },
+      "qualityGates": {
+        "description": "Checks that must pass before promoting from Dev to Test",
+        "checks": [
+          {
+            "name": "Dataset refresh succeeds",
+            "type": "automated",
+            "description": "Semantic model refresh completes without errors against the dev database"
+          },
+          {
+            "name": "No DAX errors",
+            "type": "automated",
+            "description": "All DAX measures and calculated columns evaluate without errors"
+          },
+          {
+            "name": "RLS roles defined",
+            "type": "manual",
+            "description": "Verify DepartmentRole, PhysicianRole, and ExecutiveRole are defined in the semantic model (see Security/rls-roles.json)"
+          },
+          {
+            "name": "Visual rendering check",
+            "type": "manual",
+            "description": "All report pages render without visual-level errors or missing data"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Test",
+      "order": 1,
+      "workspace": "Clearwater Health Analytics — Test",
+      "description": "Testing and UAT workspace. Content is promoted here from Dev for stakeholder validation, RLS testing, and subscription testing. Replaces the legacy pattern of deploying .rdl files to the SSRS staging server.",
+      "purpose": [
+        "User Acceptance Testing (UAT) with stakeholders",
+        "RLS role validation using 'Test as Role' (see Security/test-matrix.md)",
+        "Subscription delivery testing — verify email format and RLS filtering",
+        "Paginated report print/export validation",
+        "Performance testing with production-scale data",
+        "Parallel comparison with legacy SSRS/Crystal output"
+      ],
+      "dataSource": {
+        "server": "clearwater-sql-test.database.windows.net",
+        "database": "ClearwaterHealth_Test",
+        "description": "Test Azure SQL database with production-scale data (anonymized PHI). Used for performance validation and data accuracy comparison against legacy reports.",
+        "refreshSchedule": "Daily at 3:00 AM Eastern"
+      },
+      "accessPolicy": {
+        "roles": [
+          {
+            "role": "Admin",
+            "members": ["bi-admins@clearwaterhealth.org"]
+          },
+          {
+            "role": "Member",
+            "members": ["bi-developers@clearwaterhealth.org"]
+          },
+          {
+            "role": "Viewer",
+            "members": [
+              "finance-analysts@clearwaterhealth.org",
+              "clinical-analysts@clearwaterhealth.org",
+              "cfo@clearwaterhealth.org",
+              "quality-director@clearwaterhealth.org",
+              "nursing-supervisors@clearwaterhealth.org"
+            ],
+            "notes": "Key stakeholders from each audience group participate in UAT"
+          }
+        ]
+      },
+      "qualityGates": {
+        "description": "Checks that must pass before promoting from Test to Prod",
+        "checks": [
+          {
+            "name": "Dataset refresh succeeds",
+            "type": "automated",
+            "description": "Semantic model refresh completes against production-scale test data"
+          },
+          {
+            "name": "RLS validation passed",
+            "type": "manual",
+            "description": "All test scenarios from Security/test-matrix.md pass — DepartmentRole, PhysicianRole, ExecutiveRole, and no-role scenarios verified"
+          },
+          {
+            "name": "Data accuracy validated",
+            "type": "manual",
+            "description": "Report output compared against legacy SSRS/Crystal output for the same date ranges. Revenue totals, patient counts, quality scores, and complication rates match within acceptable tolerance (±0.01%)"
+          },
+          {
+            "name": "Subscription test delivery",
+            "type": "manual",
+            "description": "Test subscriptions sent to stakeholder group. PDF/Excel attachments validated for formatting, completeness, and RLS-filtered data accuracy"
+          },
+          {
+            "name": "Paginated report print test",
+            "type": "manual",
+            "description": "Paginated reports (MonthEndFinancial, JointCommission, CMSSubmission) exported to PDF and printed. Layout, page breaks, headers/footers, and signature blocks verified"
+          },
+          {
+            "name": "Stakeholder sign-off",
+            "type": "manual",
+            "description": "CFO, Quality Director, and Nursing Supervisor confirm reports meet requirements. Sign-off documented before production promotion"
+          },
+          {
+            "name": "Performance acceptable",
+            "type": "manual",
+            "description": "Report page load times under 5 seconds for interactive reports. Dataset refresh completes within 30-minute window"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Production",
+      "order": 2,
+      "workspace": "Clearwater Health Analytics",
+      "description": "Production workspace serving end users via the Clearwater Health Analytics Power BI App. Content is promoted here from Test after all quality gates pass. This is the workspace referenced by workspace-config.json and app-config.json.",
+      "purpose": [
+        "Production report consumption by all audiences",
+        "Active email subscriptions (Daily Revenue, Quality Metrics, Patient Census)",
+        "Mobile push notifications and data-driven alerts",
+        "Power BI App distribution to Clearwater Health organization"
+      ],
+      "dataSource": {
+        "server": "clearwater-sql.database.windows.net",
+        "database": "ClearwaterHealth",
+        "description": "Production Azure SQL database with live data. Connected via on-premises data gateway during hybrid transition period.",
+        "refreshSchedule": "See subscription-migration.md for per-report refresh schedules (4:30 AM, 6:00 AM, 11:30 AM, 7:30 PM)"
+      },
+      "accessPolicy": {
+        "roles": [
+          {
+            "role": "Admin",
+            "members": ["bi-admins@clearwaterhealth.org"]
+          },
+          {
+            "role": "Member",
+            "members": [
+              "bi-developers@clearwaterhealth.org",
+              "finance-analysts@clearwaterhealth.org"
+            ]
+          },
+          {
+            "role": "Contributor",
+            "members": [
+              "clinical-analysts@clearwaterhealth.org",
+              "dept-report-authors@clearwaterhealth.org"
+            ]
+          },
+          {
+            "role": "Viewer",
+            "members": [
+              "finance-team@clearwaterhealth.org",
+              "nursing-supervisors@clearwaterhealth.org",
+              "compliance@clearwaterhealth.org",
+              "physicians@clearwaterhealth.org"
+            ]
+          }
+        ],
+        "notes": "Full role assignment as defined in workspace-config.json"
+      },
+      "qualityGates": {
+        "description": "Post-deployment validation in production",
+        "checks": [
+          {
+            "name": "Dataset refresh succeeds",
+            "type": "automated",
+            "description": "First production refresh completes successfully after promotion"
+          },
+          {
+            "name": "App update published",
+            "type": "manual",
+            "description": "Power BI App updated after content promotion — audiences receive new content via app-config.json navigation"
+          },
+          {
+            "name": "Subscription delivery verified",
+            "type": "manual",
+            "description": "First scheduled subscription delivery confirmed for Daily Revenue (7 AM), Quality Metrics (1st of month), and Patient Census (5 AM/12 PM/8 PM)"
+          },
+          {
+            "name": "Mobile alerts active",
+            "type": "manual",
+            "description": "Data-driven alerts firing correctly for occupancy > 95%, quality status Red, revenue anomaly, and complication spike thresholds"
+          }
+        ]
+      }
+    }
+  ],
+  "deploymentRules": {
+    "description": "Rules applied during stage promotion to remap data sources and parameters per environment.",
+    "parameterRules": [
+      {
+        "name": "Database server override",
+        "description": "Automatically update the Azure SQL server connection string when content is promoted between stages",
+        "parameterName": "ServerName",
+        "stages": {
+          "Development": "clearwater-sql-dev.database.windows.net",
+          "Test": "clearwater-sql-test.database.windows.net",
+          "Production": "clearwater-sql.database.windows.net"
+        }
+      },
+      {
+        "name": "Database name override",
+        "description": "Update the database name per environment",
+        "parameterName": "DatabaseName",
+        "stages": {
+          "Development": "ClearwaterHealth_Dev",
+          "Test": "ClearwaterHealth_Test",
+          "Production": "ClearwaterHealth"
+        }
+      }
+    ],
+    "dataSourceRules": [
+      {
+        "name": "Azure SQL connection",
+        "description": "Remap the semantic model data source connection per stage",
+        "dataSourceType": "AzureSQL",
+        "stages": {
+          "Development": {
+            "server": "clearwater-sql-dev.database.windows.net",
+            "database": "ClearwaterHealth_Dev"
+          },
+          "Test": {
+            "server": "clearwater-sql-test.database.windows.net",
+            "database": "ClearwaterHealth_Test"
+          },
+          "Production": {
+            "server": "clearwater-sql.database.windows.net",
+            "database": "ClearwaterHealth"
+          }
+        }
+      }
+    ]
+  },
+  "automationNotes": {
+    "description": "Optional CI/CD integration for automated deployments using Power BI REST APIs.",
+    "restApiEndpoints": {
+      "deployAll": "POST /v1.0/myorg/pipelines/{pipelineId}/deployAll",
+      "getStages": "GET /v1.0/myorg/pipelines/{pipelineId}/stages",
+      "getOperations": "GET /v1.0/myorg/pipelines/{pipelineId}/operations"
+    },
+    "cicdIntegration": {
+      "description": "Integrate with Azure DevOps or GitHub Actions to trigger stage promotions after code review approval.",
+      "suggestedWorkflow": [
+        "1. Developer publishes to Dev workspace from Power BI Desktop",
+        "2. Dev quality gates run (automated refresh, DAX validation)",
+        "3. Pull request created for semantic model / report changes",
+        "4. PR approval triggers promotion from Dev → Test via REST API",
+        "5. UAT stakeholders validate in Test workspace",
+        "6. Stakeholder sign-off triggers promotion from Test → Prod via REST API",
+        "7. Power BI App updated automatically after Prod promotion"
+      ]
+    }
+  }
+}
