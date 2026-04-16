@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.powerbi.com/gateway/v1.0",
+  "description": "On-premises data gateway configuration for connecting Power BI to the consolidated Azure SQL Database.",
+  "gateway": {
+    "name": "Contoso-PBI-Gateway",
+    "description": "Primary gateway cluster for Power BI dataset refresh against Azure SQL.",
+    "clusterId": "{gateway-cluster-id}",
+    "region": "West Europe",
+    "contactInformation": "bi-admins@contoso.com",
+    "status": "Live",
+    "version": "3000.x"
+  },
+  "dataSources": [
+    {
+      "dataSourceId": "{datasource-id}",
+      "dataSourceName": "ConsolidatedReportingDB",
+      "dataSourceType": "Sql",
+      "connectionDetails": {
+        "server": "{azure-sql-server}.database.windows.net",
+        "database": "ConsolidatedReportingDB",
+        "encrypt": true,
+        "trustServerCertificate": false
+      },
+      "credentialType": "OAuth2",
+      "credential": {
+        "credentialType": "OAuth2",
+        "privacyLevel": "Organizational"
+      },
+      "connectionPooling": {
+        "enabled": true,
+        "minPoolSize": 5,
+        "maxPoolSize": 30,
+        "connectionLifetimeSeconds": 300,
+        "idleTimeoutSeconds": 120,
+        "description": "Pool connections to Azure SQL to reduce overhead during refresh. Max pool size should accommodate parallel partition refresh."
+      },
+      "timeoutSettings": {
+        "connectionTimeoutSeconds": 30,
+        "commandTimeoutSeconds": 600,
+        "description": "Connection timeout is for establishing the link; command timeout covers individual query execution during refresh."
+      }
+    }
+  ],
+  "networking": {
+    "httpsPort": 443,
+    "disableOnPremisesGatewayTraffic": false,
+    "serviceBusConnectivity": "AutoDetect",
+    "proxySettings": {
+      "enabled": false,
+      "address": null,
+      "bypassList": []
+    }
+  },
+  "resourceLimits": {
+    "maxConcurrentQueries": 20,
+    "memoryLimitMB": 8192,
+    "cpuThrottlePercent": 80,
+    "description": "Resource limits to prevent the gateway from becoming a bottleneck. Adjust based on VM size."
+  },
+  "logging": {
+    "level": "Information",
+    "additionalLogging": true,
+    "logRetentionDays": 30,
+    "logPath": "C:\\ProgramData\\Microsoft\\On-premises data gateway\\Logs"
+  },
+  "highAvailability": {
+    "enabled": true,
+    "clusterMembers": [
+      {
+        "name": "GW-Node-01",
+        "status": "Live"
+      },
+      {
+        "name": "GW-Node-02",
+        "status": "Live"
+      }
+    ],
+    "loadBalancing": "RoundRobin",
+    "description": "Two-node cluster for failover. Ensure both nodes have identical data source configurations."
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.powerbi.com/refresh/v1.0",
+  "description": "Scheduled refresh configuration for the consolidated Power BI semantic model sourced from Azure SQL Database.",
+  "scheduledRefresh": {
+    "enabled": true,
+    "frequency": "Daily",
+    "timeZone": "UTC",
+    "times": [
+      "05:00"
+    ],
+    "days": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    ],
+    "notifyOption": "MailOnFailure",
+    "notificationRecipients": [
+      "bi-admins@contoso.com"
+    ]
+  },
+  "onDemandRefresh": {
+    "enabled": true,
+    "description": "Allows manual refresh via Power BI Service UI or REST API.",
+    "apiEndpoint": "POST https://api.powerbi.com/v1.0/myorg/groups/{workspaceId}/datasets/{datasetId}/refreshes",
+    "requestBody": {
+      "notifyOption": "MailOnFailure",
+      "type": "Full"
+    }
+  },
+  "gatewayConnection": {
+    "gatewayId": "{gateway-id}",
+    "dataSourceId": "{datasource-id}",
+    "dataSource": {
+      "type": "Sql",
+      "connectionDetails": {
+        "server": "{azure-sql-server}.database.windows.net",
+        "database": "ConsolidatedReportingDB"
+      },
+      "credentialType": "OAuth2",
+      "credential": {
+        "credentialType": "OAuth2",
+        "privacyLevel": "Organizational"
+      }
+    }
+  },
+  "retryPolicy": {
+    "enabled": true,
+    "maxRetries": 3,
+    "retryIntervalMinutes": 15,
+    "retryOn": [
+      "ConnectionFailure",
+      "Timeout",
+      "TransientError"
+    ],
+    "escalation": {
+      "afterMaxRetries": "NotifyAdmin",
+      "notificationChannel": "email",
+      "recipients": [
+        "bi-admins@contoso.com"
+      ]
+    }
+  }
+}

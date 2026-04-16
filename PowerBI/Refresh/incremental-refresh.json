@@ -1,0 +1,91 @@
+{
+  "$schema": "https://schema.powerbi.com/incremental-refresh/v1.0",
+  "description": "Incremental refresh policy for large fact tables migrated from Crystal Reports and SSRS into the consolidated Azure SQL data source.",
+  "parameters": {
+    "RangeStart": {
+      "type": "DateTime",
+      "description": "Start of the data range window. Managed automatically by the Power BI service during refresh.",
+      "currentValue": null
+    },
+    "RangeEnd": {
+      "type": "DateTime",
+      "description": "End of the data range window. Managed automatically by the Power BI service during refresh.",
+      "currentValue": null
+    }
+  },
+  "tables": [
+    {
+      "name": "FactSales",
+      "incrementalRefreshPolicy": {
+        "rollingWindowPeriod": {
+          "historical": {
+            "years": 2,
+            "description": "Store 2 full years of historical data in import partitions."
+          },
+          "realTime": {
+            "period": "CurrentYear",
+            "mode": "DirectQuery",
+            "description": "Current-year data served via DirectQuery for real-time freshness."
+          }
+        },
+        "refreshGranularity": "Day",
+        "incrementalRefreshWindow": {
+          "days": 10,
+          "description": "Only refresh the most recent 10 days of data during each incremental refresh cycle."
+        },
+        "detectDataChanges": {
+          "enabled": true,
+          "column": "modified_date",
+          "description": "Only refresh partitions where modified_date has a newer value than the last recorded refresh timestamp."
+        },
+        "pollingExpression": "MAX(modified_date)",
+        "sourceFilter": {
+          "description": "Applied as a native query filter to limit rows fetched from Azure SQL.",
+          "template": "SELECT * FROM [dbo].[FactSales] WHERE [order_date] >= @RangeStart AND [order_date] < @RangeEnd"
+        }
+      }
+    },
+    {
+      "name": "FactInventory",
+      "incrementalRefreshPolicy": {
+        "rollingWindowPeriod": {
+          "historical": {
+            "years": 2,
+            "description": "Store 2 full years of historical inventory snapshots."
+          },
+          "realTime": {
+            "period": "CurrentYear",
+            "mode": "DirectQuery",
+            "description": "Current-year inventory served via DirectQuery."
+          }
+        },
+        "refreshGranularity": "Day",
+        "incrementalRefreshWindow": {
+          "days": 7,
+          "description": "Refresh the most recent 7 days during each incremental refresh."
+        },
+        "detectDataChanges": {
+          "enabled": true,
+          "column": "modified_date",
+          "description": "Detect changes via modified_date column."
+        },
+        "pollingExpression": "MAX(modified_date)",
+        "sourceFilter": {
+          "template": "SELECT * FROM [dbo].[FactInventory] WHERE [snapshot_date] >= @RangeStart AND [snapshot_date] < @RangeEnd"
+        }
+      }
+    }
+  ],
+  "notes": {
+    "prerequisites": [
+      "RangeStart and RangeEnd must be defined as DateTime parameters in the Power Query editor.",
+      "The source query must filter on these parameters for incremental refresh to take effect.",
+      "The modified_date column must be indexed in Azure SQL for efficient change detection."
+    ],
+    "bestPractices": [
+      "Keep the incremental window small to minimize refresh duration.",
+      "Use DirectQuery for real-time partitions only if the Azure SQL tier supports the query load.",
+      "Monitor partition counts; excessive granularity can degrade model performance."
+    ]
+  }
+}

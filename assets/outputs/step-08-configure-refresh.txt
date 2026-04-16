@@ -1,0 +1,34 @@
+ÔùÅ List directory PowerBI
+  Ôöö 8 files found
+
+ÔùÅ Create Refresh directory (shell)
+  Ôöé New-Item -ItemType Directory -Path
+  Ôöé "C:\code\gbb\labs\appmodlab-legacy-reporting-to-power-bi\PowerBI\Refresh"
+  Ôöé -Force | Out-Null; Write-Output "Created"
+  Ôöö 2 lines...
+
+ÔùÅ Create scheduled-refresh.json +68
+  Ôöö PowerBI\Refresh\scheduled-refresh.json
+
+ÔùÅ Create refresh-monitoring.md +153
+  Ôöö PowerBI\Refresh\refresh-monitoring.md
+
+ÔùÅ Create incremental-refresh.json +92
+  Ôöö PowerBI\Refresh\incremental-refresh.json
+
+ÔùÅ Create gateway-config.json +82
+  Ôöö PowerBI\Refresh\gateway-config.json
+
+All four files are created under `PowerBI/Refresh/`:
+
+| File | Key Contents |
+|------|-------------|
+| **scheduled-refresh.json** | Daily 5:00 AM UTC refresh, on-demand via REST API, gateway connection to Azure SQL, retry policy (3 retries, 15 min interval) |
+| **incremental-refresh.json** | RangeStart/RangeEnd parameters, 2-year historical + current-year DirectQuery, `modified_date` change detection, day-level granularity |
+| **refresh-monitoring.md** | REST API calls for refresh status, alerting via Azure Monitor/Power Automate/PowerShell, performance tuning & troubleshooting |
+| **gateway-config.json** | Two-node HA gateway cluster, connection pooling (5ÔÇô30), 30s connect / 600s command timeout, resource limits |
+
+
+Changes   +395 -0
+Requests  3 Premium (1m 38s)
+Tokens    Ôåæ 110.7k ÔÇó Ôåô 4.8k ÔÇó 87.4k (cached)
