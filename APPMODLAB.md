@@ -338,6 +338,133 @@ The following syntax-highlighted HTML renderings capture the legacy reporting co
 
 ---
 
+## Solution Walkthrough
+
+This solution was built using the **GitHub Copilot CLI** tool to execute each lab step autonomously. All CLI outputs are captured in `assets/outputs/` on the `solution-final` branch.
+
+### Branch & Tags
+
+- **Branch:** `solution-final`
+- **Tags:** `step-01-inventory-reports` through `step-09-validate`
+
+### Step-by-Step CLI Commands & Prompts
+
+#### Step 1: Inventory Reports
+```bash
+gh copilot -- -p "Step 1: Inventory Reports. Analyze the Clearwater Health System legacy reporting repo. Review all Crystal Reports in CrystalReports/ and SSRS reports in SSRS-Reports/. Create PowerBI/ReportInventory.md cataloging all reports with platform, data source, complexity, and migration priority. Create PowerBI/MigrationPlan.md with prioritized conversion order." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-01-inventory-reports.txt`](assets/outputs/step-01-inventory-reports.txt)  
+**Files created:** `PowerBI/ReportInventory.md`, `PowerBI/MigrationPlan.md`
+
+#### Step 2: Consolidate Data Sources
+```bash
+gh copilot -- -p "Step 2: Consolidate Data Sources. Create PowerBI/ConsolidatedSQL/ with consolidated Azure SQL views replacing report-specific stored procedures: vw_ConsolidatedPatientCensus, vw_ConsolidatedRevenue, vw_SurgicalOutcomes, vw_QualityMetrics, vw_ReadmissionRisk, and 00-migration-script.sql." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-02-consolidate-data-sources.txt`](assets/outputs/step-02-consolidate-data-sources.txt)  
+**Files created:** 6 SQL view files in `PowerBI/ConsolidatedSQL/`
+
+#### Step 3: Build Semantic Model
+```bash
+gh copilot -- -p "Step 3: Build Semantic Model. Create PowerBI/SemanticModel/ with model.tmdl (Tabular Model Definition), measures.dax (DAX measures replacing stored proc logic), relationships.md (star schema docs), and calculated-columns.dax (Crystal formula translations)." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-03-build-semantic-model.txt`](assets/outputs/step-03-build-semantic-model.txt)  
+**Files created:** `model.tmdl`, `measures.dax`, `relationships.md`, `calculated-columns.dax`
+
+#### Step 4: Convert Key Reports
+```bash
+gh copilot -- -p "Step 4: Convert Key Reports. Create PowerBI/Reports/ with Power BI report definitions (JSON) for PatientCensus, DailyRevenue, QualityMetrics, and SurgicalOutcomes. Include ConversionGuide.md documenting Crystal/SSRS to DAX translations." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-04-convert-key-reports.txt`](assets/outputs/step-04-convert-key-reports.txt)  
+**Files created:** 4 JSON report definitions + `ConversionGuide.md`
+
+#### Step 5: Implement RLS
+```bash
+gh copilot -- -p "Step 5: Implement Row-Level Security. Create PowerBI/Security/ with rls-roles.json (DepartmentRole, PhysicianRole, ExecutiveRole), rls-dax-filters.dax, role-mappings.md, and test-matrix.md for RLS validation." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-05-implement-rls.txt`](assets/outputs/step-05-implement-rls.txt)  
+**Files created:** `rls-roles.json`, `rls-dax-filters.dax`, `role-mappings.md`, `test-matrix.md`
+
+#### Step 6: Migrate Paginated Reports
+```bash
+gh copilot -- -p "Step 6: Migrate Paginated Reports. Create PowerBI/PaginatedReports/ with RDL files for CMSSubmission, JointCommission, and MonthEndFinancial paginated reports, plus MigrationGuide.md." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-06-migrate-paginated-reports.txt`](assets/outputs/step-06-migrate-paginated-reports.txt)  
+**Files created:** 3 RDL paginated reports + `MigrationGuide.md`
+
+#### Step 7: Set Up Distribution
+```bash
+gh copilot -- -p "Step 7: Set Up Distribution. Create PowerBI/Distribution/ with workspace-config.json, app-config.json, subscription-migration.md, and deployment-pipeline.json." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-07-setup-distribution.txt`](assets/outputs/step-07-setup-distribution.txt)  
+**Files created:** `workspace-config.json`, `app-config.json`, `subscription-migration.md`, `deployment-pipeline.json`
+
+#### Step 8: Configure Refresh
+```bash
+gh copilot -- -p "Step 8: Configure Refresh. Create PowerBI/Refresh/ with scheduled-refresh.json (daily 5 AM), incremental-refresh.json (2-year rolling window), refresh-monitoring.md, and gateway-config.json." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-08-configure-refresh.txt`](assets/outputs/step-08-configure-refresh.txt)  
+**Files created:** `scheduled-refresh.json`, `incremental-refresh.json`, `refresh-monitoring.md`, `gateway-config.json`
+
+#### Step 9: Validate
+```bash
+gh copilot -- -p "Step 9: Validate. Create PowerBI/Validation/ with validation-queries.sql (side-by-side comparison queries), test-results.md (comparison template), uat-checklist.md (acceptance testing), and performance-benchmarks.md." --allow-all-tools --yolo
+```
+**Output:** [`assets/outputs/step-09-validate.txt`](assets/outputs/step-09-validate.txt)  
+**Files created:** `validation-queries.sql`, `test-results.md`, `uat-checklist.md`, `performance-benchmarks.md`
+
+### Solution Structure
+
+```
+PowerBI/
+├── ReportInventory.md              # Report catalog with complexity ratings
+├── MigrationPlan.md                # Prioritized 3-wave migration plan
+├── ConsolidatedSQL/                # Azure SQL views replacing stored procs
+│   ├── 00-migration-script.sql
+│   ├── vw_ConsolidatedPatientCensus.sql
+│   ├── vw_ConsolidatedRevenue.sql
+│   ├── vw_SurgicalOutcomes.sql
+│   ├── vw_QualityMetrics.sql
+│   └── vw_ReadmissionRisk.sql
+├── SemanticModel/                  # Power BI dataset definition
+│   ├── model.tmdl
+│   ├── measures.dax
+│   ├── calculated-columns.dax
+│   └── relationships.md
+├── Reports/                        # Interactive Power BI reports
+│   ├── PatientCensus.json
+│   ├── DailyRevenue.json
+│   ├── QualityMetrics.json
+│   ├── SurgicalOutcomes.json
+│   └── ConversionGuide.md
+├── Security/                       # Row-level security
+│   ├── rls-roles.json
+│   ├── rls-dax-filters.dax
+│   ├── role-mappings.md
+│   └── test-matrix.md
+├── PaginatedReports/               # Pixel-perfect regulatory reports
+│   ├── CMSSubmission.rdl
+│   ├── JointCommission.rdl
+│   ├── MonthEndFinancial.rdl
+│   └── MigrationGuide.md
+├── Distribution/                   # Workspace & app configuration
+│   ├── workspace-config.json
+│   ├── app-config.json
+│   ├── subscription-migration.md
+│   └── deployment-pipeline.json
+├── Refresh/                        # Scheduled & incremental refresh
+│   ├── scheduled-refresh.json
+│   ├── incremental-refresh.json
+│   ├── refresh-monitoring.md
+│   └── gateway-config.json
+└── Validation/                     # Testing & validation
+    ├── validation-queries.sql
+    ├── test-results.md
+    ├── uat-checklist.md
+    └── performance-benchmarks.md
+```
+
+---
+
 **Estimated Duration:** 4-6 hours  
 **Difficulty:** Intermediate  
 **Category:** Data Modernization
