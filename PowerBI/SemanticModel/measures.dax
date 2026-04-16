@@ -1,0 +1,328 @@
+// ==========================================================================
+// Clearwater Health System — DAX Measures
+// ==========================================================================
+// These measures replace logic previously embedded in:
+//   - Crystal Reports formulas (WhilePrintingRecords, RunningTotal)
+//   - SSRS expressions (IIF, CASE)
+//   - SQL stored procedures (usp_GetDailyRevenue)
+//   - SQL scalar functions (fn_CalculateReadmissionRisk)
+//
+// Organization:
+//   1. Revenue Measures      (replaces usp_GetDailyRevenue / DailyRevenue.rdl)
+//   2. Patient Census         (replaces PatientCensus.rpt Crystal formulas)
+//   3. Surgical Outcomes      (replaces SurgicalOutcomes.rpt formulas)
+//   4. Quality Metrics        (replaces QualityMetrics.rdl CASE/IIF)
+//   5. Time Intelligence      (new — enabled by Calendar dimension)
+// ==========================================================================
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// 1. REVENUE MEASURES
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Legacy source: usp_GetDailyRevenue stored procedure.
+//   The SP accepted @ReportDate, filtered charges by date, and returned
+//   SUM(charge_amount), SUM(payment_amount), SUM(net_revenue) grouped
+//   by department.
+//
+// In Power BI the date filter comes from slicers bound to the Calendar
+// table, and aggregation is handled by these DAX measures.
+// ──────────────────────────────────────────────────────────────────────────
+
+// Total Revenue (gross charges)
+// Replaces: SUM(c.charge_amount) in usp_GetDailyRevenue
+// SSRS field: =Fields!ChargesAmount.Value with format $#,##0.00
+Total Revenue =
+    SUM( Charges[charge_amount] )
+
+// Total Payments
+// Replaces: SUM(p.payment_amount) in usp_GetDailyRevenue
+Total Payments =
+    SUM( Payments[payment_amount] )
+
+// Total Adjustments
+Total Adjustments =
+    SUM( Adjustments[adjustment_amount] )
+
+// Net Revenue
+// Replaces: SUM(c.charge_amount) - SUM(ISNULL(adj.adjustment_amount, 0))
+//           in usp_GetDailyRevenue
+//
+// Translation note (SSRS → DAX):
+//   SSRS used =Fields!NetRevenue.Value which came from the SP.
+//   DAX SUM automatically treats BLANK (NULL equivalent) as 0 in
+//   arithmetic, so no ISNULL/COALESCE wrapper is needed.
+Net Revenue =
+    [Total Revenue] - [Total Adjustments]
+
+// Running Total Revenue
+// ──────────────────────────────────────────────────────────────────────
+// Replaces: Crystal Reports RunningTotal field.
+//
+// Crystal Reports translation:
+//   Crystal used the built-in RunningTotal function which accumulated
+//   a running sum across detail rows in print order. The evaluation
+//   timing was controlled by WhilePrintingRecords (second-pass
+//   evaluation after grouping/sorting).
+//
+//   In DAX there is no concept of "print passes". Instead we use
+//   CALCULATE + FILTER over the Calendar to accumulate revenue from
+//   the earliest date up to each row's date context:
+//
+//   Crystal (pseudo):
+//     WhilePrintingRecords;
+//     RunningTotal(charge_amount)   // resets per group if configured
+//
+//   DAX equivalent:
+//     CALCULATE( SUM(...), FILTER( ALL(Calendar), Calendar[Date] <= MAX(...) ) )
+//
+// This produces a cumulative sum that works correctly in tables,
+// line charts, and matrix visuals when Calendar[Date] is on the axis.
+// ──────────────────────────────────────────────────────────────────────
+Running Total Revenue =
+    CALCULATE(
+        [Total Revenue],
+        FILTER(
+            ALL( Calendar ),
+            Calendar[Date] <= MAX( Calendar[Date] )
+        )
+    )
+
+// Patient Count (revenue context — distinct patients with charges)
+Patient Count with Charges =
+    CALCULATE(
+        DISTINCTCOUNT( Charges[charge_id] ),
+        ALLEXCEPT( Charges, Charges[department_id] )
+    )
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// 2. PATIENT CENSUS MEASURES
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Legacy source: Crystal Reports PatientCensus.rpt
+//   - Formula "LengthOfStay": SYSDATE - {patients.admission_date}
+//   - Formula "WardOccupancy": Count({patients.patient_id}) /
+//                               {wards.bed_capacity} * 100
+//   - Grouped by ward_name with conditional red text when > 95%
+//
+// Also replaces: SQL/Views/vw_PatientCensus.sql aggregation columns
+// ──────────────────────────────────────────────────────────────────────────
+
+// Patient Count
+// Replaces: Count({patients.patient_id}) in Crystal WardOccupancy formula
+Patient Count =
+    COUNTROWS( Patients )
+
+// Current Patient Count (currently admitted, not yet discharged)
+Current Patient Count =
+    CALCULATE(
+        COUNTROWS( Patients ),
+        ISBLANK( Patients[discharge_date] )
+    )
+
+// Occupancy Percent
+// Replaces: Crystal formula WardOccupancy =
+//   Count({patients.patient_id}) / {wards.bed_capacity} * 100
+//
+// Translation note (Crystal → DAX):
+//   Crystal evaluated Count() within the current group (ward).
+//   DAX DIVIDE respects the filter context from a Ward slicer or
+//   row grouping, producing the same per-ward result.
+//
+//   Crystal: Count({patients.patient_id}) / {wards.bed_capacity} * 100
+//   DAX:     DIVIDE( [Current Patient Count], SUM(Wards[bed_capacity]) ) * 100
+Occupancy Percent =
+    DIVIDE(
+        [Current Patient Count],
+        SUM( Wards[bed_capacity] )
+    ) * 100
+
+// Average Length of Stay
+// Replaces: Crystal formula LengthOfStay = SYSDATE - {patients.admission_date}
+//           (averaged across the current group)
+//
+// Translation note (Crystal → DAX):
+//   Crystal: SYSDATE - {patients.admission_date}
+//   DAX:     DATEDIFF( [admission_date], TODAY(), DAY )
+//
+//   The Crystal formula computed LOS per row. In Power BI the per-row
+//   value is a calculated column (see calculated-columns.dax).
+//   This measure averages the per-row LOS across all patients in context.
+Average Length of Stay =
+    AVERAGE( Patients[LengthOfStay] )
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// 3. SURGICAL OUTCOMES MEASURES
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Legacy source: Crystal Reports SurgicalOutcomes.rpt
+//   - Formula "ComplicationRate":
+//       Count({complications.complication_id}) /
+//       Count({surgeries.surgery_id}) * 100
+//   - Sub-report "ComplicationDetails" linked on surgery_id (N+1)
+//
+// The sub-report pattern is eliminated; complications are now a
+// separate table with a relationship to Surgeries.
+// ──────────────────────────────────────────────────────────────────────────
+
+// Total Surgeries
+Total Surgeries =
+    COUNTROWS( Surgeries )
+
+// Total Complications
+Total Complications =
+    COUNTROWS( Complications )
+
+// Complication Rate
+// Replaces: Crystal ComplicationRate formula
+//   Crystal: Count({complications.complication_id}) /
+//            Count({surgeries.surgery_id}) * 100
+//   DAX:     DIVIDE( COUNTROWS(Complications), COUNTROWS(Surgeries) ) * 100
+Complication Rate =
+    DIVIDE(
+        [Total Complications],
+        [Total Surgeries]
+    ) * 100
+
+// Readmission Risk Score (average across filtered patients)
+// Replaces: fn_CalculateReadmissionRisk scalar function
+//   The per-patient score is a calculated column (see calculated-columns.dax).
+//   This measure provides the average score across the current filter context.
+Readmission Risk Score =
+    AVERAGE( Patients[ReadmissionRiskScore] )
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// 4. QUALITY METRICS MEASURES
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Legacy source: SSRS QualityMetrics.rdl
+//   - Inline SQL CASE expression computed status_color
+//   - SSRS IIF expression mapped status_color to cell background colors:
+//       =IIF(Fields!status_color.Value = "Green", "LightGreen",
+//        IIF(Fields!status_color.Value = "Yellow", "Yellow", "LightCoral"))
+//
+// In Power BI:
+//   - Status logic is a calculated column (StatusColor) using SWITCH
+//   - Background color is set via conditional formatting rules bound
+//     to StatusColor (no DAX measure needed for the color itself)
+//   - These measures provide aggregated KPI values for cards/gauges
+// ──────────────────────────────────────────────────────────────────────────
+
+// Metrics Meeting Target (Green)
+// Replaces: SSRS CASE WHEN actual_value >= target_value THEN 'Green'
+//
+// Translation note (SSRS CASE → DAX SWITCH):
+//   SQL:  CASE WHEN actual_value >= target_value THEN 'Green' ...
+//   SSRS: =IIF(Fields!status_color.Value = "Green", ...)
+//   DAX:  CALCULATE( COUNTROWS(...), filter on StatusColor = "Green" )
+Metrics Meeting Target =
+    CALCULATE(
+        COUNTROWS( CmsQualityMetrics ),
+        CmsQualityMetrics[StatusColor] = "Green"
+    )
+
+// Metrics At Warning (Yellow)
+Metrics At Warning =
+    CALCULATE(
+        COUNTROWS( CmsQualityMetrics ),
+        CmsQualityMetrics[StatusColor] = "Yellow"
+    )
+
+// Metrics Below Target (Red)
+Metrics Below Target =
+    CALCULATE(
+        COUNTROWS( CmsQualityMetrics ),
+        CmsQualityMetrics[StatusColor] = "Red"
+    )
+
+// Quality Score (% of metrics meeting target)
+Quality Score Percent =
+    DIVIDE(
+        [Metrics Meeting Target],
+        COUNTROWS( CmsQualityMetrics )
+    ) * 100
+
+// Metric Status (row-level — for use in card/KPI visuals)
+// Replaces: SSRS CASE expression + IIF conditional formatting
+//
+// Full translation chain:
+//   SQL (legacy):
+//     CASE
+//       WHEN actual_value >= target_value THEN 'Green'
+//       WHEN actual_value >= target_value * 0.9 THEN 'Yellow'
+//       ELSE 'Red'
+//     END AS status_color
+//
+//   SSRS (legacy):
+//     =IIF(Fields!status_color.Value = "Green", "LightGreen",
+//      IIF(Fields!status_color.Value = "Yellow", "Yellow", "LightCoral"))
+//
+//   DAX (Power BI):
+//     Uses SWITCH(TRUE(), ...) pattern — the DAX equivalent of
+//     SQL CASE WHEN / SSRS IIF chains.
+Metric Status =
+    IF(
+        HASONEVALUE( CmsQualityMetrics[metric_id] ),
+        SWITCH(
+            TRUE(),
+            SELECTEDVALUE( CmsQualityMetrics[actual_value] )
+                >= SELECTEDVALUE( CmsQualityMetrics[target_value] ),
+                "Green",
+            SELECTEDVALUE( CmsQualityMetrics[actual_value] )
+                >= SELECTEDVALUE( CmsQualityMetrics[target_value] ) * 0.9,
+                "Yellow",
+            "Red"
+        ),
+        BLANK()
+    )
+
+// Average Target Variance Percent
+Average Target Variance Pct =
+    AVERAGE( CmsQualityMetrics[TargetVariancePct] )
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// 5. TIME INTELLIGENCE MEASURES
+// ══════════════════════════════════════════════════════════════════════════
+//
+// These measures leverage the Calendar date table to provide YTD,
+// prior-period, and trend calculations that were not available in
+// the legacy Crystal/SSRS reports.
+// ──────────────────────────────────────────────────────────────────────────
+
+// YTD Revenue
+// New measure — no direct legacy equivalent. In the legacy stack,
+// YTD calculations required a separate SQL query or manual Excel work.
+// DAX TOTALYTD automatically accumulates from Jan 1 of the current year.
+YTD Revenue =
+    TOTALYTD(
+        [Total Revenue],
+        Calendar[Date]
+    )
+
+// Prior Year Revenue (same period)
+Prior Year Revenue =
+    CALCULATE(
+        [Total Revenue],
+        SAMEPERIODLASTYEAR( Calendar[Date] )
+    )
+
+// Revenue Growth %
+Revenue Growth Pct =
+    VAR CurrentRevenue = [Total Revenue]
+    VAR PriorRevenue = [Prior Year Revenue]
+    RETURN
+    DIVIDE(
+        CurrentRevenue - PriorRevenue,
+        PriorRevenue
+    ) * 100
+
+// YTD Net Revenue
+YTD Net Revenue =
+    TOTALYTD(
+        [Net Revenue],
+        Calendar[Date]
+    )

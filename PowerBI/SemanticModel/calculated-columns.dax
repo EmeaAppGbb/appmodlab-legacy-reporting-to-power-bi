@@ -1,0 +1,221 @@
+// ==========================================================================
+// Clearwater Health System — DAX Calculated Columns
+// ==========================================================================
+// Calculated columns that replace Crystal Reports formulas, SSRS
+// expressions, and SQL scalar functions with row-level DAX logic.
+//
+// Each column documents the original legacy formula it replaces and
+// the translation rationale.
+// ==========================================================================
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// TABLE: Patients
+// ══════════════════════════════════════════════════════════════════════════
+
+// --------------------------------------------------------------------------
+// LengthOfStay — Days from admission to discharge (or today if still admitted)
+// --------------------------------------------------------------------------
+// Replaces: Crystal Reports formula in PatientCensus.rpt
+//
+// Crystal Reports original:
+//   // Crystal evaluation directive — forces formula to evaluate during
+//   // the second pass (after data retrieval and grouping are complete).
+//   // This is required for formulas that depend on grouped/sorted data.
+//   WhilePrintingRecords;
+//   SYSDATE - {patients.admission_date}
+//
+// Translation notes:
+//   - Crystal's SYSDATE is the Oracle equivalent of "current date".
+//     DAX equivalent: TODAY()
+//   - Crystal date subtraction returns a number of days (Oracle DATE
+//     arithmetic). DAX uses DATEDIFF for explicit unit control.
+//   - WhilePrintingRecords has no DAX equivalent — DAX calculated columns
+//     are evaluated during data refresh (materialized), and measures are
+//     evaluated at query time. Both are deterministic and do not require
+//     multi-pass evaluation. The directive is simply not needed.
+//   - Crystal's formula produced fractional days (Oracle DATE includes time).
+//     DATEDIFF(DAY) returns whole days, matching the consolidated SQL view
+//     column length_of_stay_days for consistency.
+//
+// Also replaces: vw_ConsolidatedPatientCensus.length_of_stay_days
+//   SQL: DATEDIFF(DAY, p.admission_date, ISNULL(p.discharge_date, GETDATE()))
+//   DAX: Same logic with IF(ISBLANK(...), TODAY(), ...)
+// --------------------------------------------------------------------------
+Patients[LengthOfStay] =
+    DATEDIFF(
+        Patients[admission_date],
+        IF(
+            ISBLANK( Patients[discharge_date] ),
+            TODAY(),
+            Patients[discharge_date]
+        ),
+        DAY
+    )
+
+
+// --------------------------------------------------------------------------
+// IsCurrentPatient — Flag: 1 if still admitted, 0 if discharged
+// --------------------------------------------------------------------------
+// Replaces: vw_ConsolidatedPatientCensus.is_current_patient
+//   SQL: CASE WHEN p.discharge_date IS NULL THEN 1 ELSE 0 END
+//   DAX: IF( ISBLANK(...), 1, 0 )
+//
+// Translation note (SQL CASE → DAX IF):
+//   SQL CASE WHEN ... THEN ... ELSE ... END  →  DAX IF( condition, true, false )
+//   SQL IS NULL                               →  DAX ISBLANK()
+// --------------------------------------------------------------------------
+Patients[IsCurrentPatient] =
+    IF(
+        ISBLANK( Patients[discharge_date] ),
+        1,
+        0
+    )
+
+
+// --------------------------------------------------------------------------
+// ReadmissionRiskScore — Numeric risk score per patient
+// --------------------------------------------------------------------------
+// Replaces: SQL/Functions/fn_CalculateReadmissionRisk.sql
+//
+// Original scalar function (SQL Server):
+//   CREATE FUNCTION dbo.fn_CalculateReadmissionRisk(
+//       @PatientAge INT, @DiagnosisCode VARCHAR(10),
+//       @PriorAdmissions INT, @ComorbidityCount INT
+//   ) RETURNS VARCHAR(10)
+//   BEGIN
+//       DECLARE @RiskScore INT = 0;
+//       IF @PatientAge >= 65 SET @RiskScore = @RiskScore + 2;
+//       IF @PatientAge >= 75 SET @RiskScore = @RiskScore + 1;
+//       SET @RiskScore = @RiskScore + (@PriorAdmissions * 2);
+//       SET @RiskScore = @RiskScore + @ComorbidityCount;
+//       IF @DiagnosisCode IN ('I50', 'J44', 'N18')
+//           SET @RiskScore = @RiskScore + 3;
+//       ...
+//   END
+//
+// Translation notes:
+//   - SQL Server scalar UDFs block parallelism and were already replaced
+//     by inline CASE in vw_ReadmissionRisk. This DAX column applies the
+//     same logic directly in the semantic model.
+//   - SQL IF/SET accumulation pattern → DAX arithmetic with nested IF/SWITCH.
+//   - SQL IN ('I50','J44','N18') → DAX OR() chain or IN operator.
+//   - The age scoring uses cumulative logic: age >= 75 gets +3 (not +1),
+//     because the original function applied both the >= 65 and >= 75 checks.
+// --------------------------------------------------------------------------
+Patients[ReadmissionRiskScore] =
+    // Age factor: +2 if >= 65, +1 more if >= 75 (cumulative +3)
+    IF( Patients[patient_age] >= 75, 3,
+        IF( Patients[patient_age] >= 65, 2, 0 )
+    )
+    // Prior admissions factor: 2 points per prior admission
+    + Patients[prior_admissions] * 2
+    // Comorbidity factor: 1 point per comorbidity
+    + Patients[comorbidity_count]
+    // High-risk diagnosis codes: +3 if diagnosis matches
+    + IF(
+        Patients[diagnosis_code] IN { "I50", "J44", "N18" },
+        3,
+        0
+    )
+
+
+// --------------------------------------------------------------------------
+// ReadmissionRiskLevel — Categorical risk level derived from score
+// --------------------------------------------------------------------------
+// Replaces: fn_CalculateReadmissionRisk return value
+//   SQL: CASE WHEN @RiskScore >= 8 THEN 'High'
+//             WHEN @RiskScore >= 5 THEN 'Moderate'
+//             ELSE 'Low' END
+//
+// Translation note (SQL CASE → DAX SWITCH):
+//   SQL:  CASE WHEN score >= 8 THEN 'High' WHEN score >= 5 THEN 'Moderate' ELSE 'Low' END
+//   DAX:  SWITCH(TRUE(), score >= 8, "High", score >= 5, "Moderate", "Low")
+//
+//   SWITCH(TRUE(), ...) is the standard DAX pattern for evaluated CASE WHEN.
+//   It evaluates conditions top-to-bottom, returning the first TRUE match.
+// --------------------------------------------------------------------------
+Patients[ReadmissionRiskLevel] =
+    SWITCH(
+        TRUE(),
+        Patients[ReadmissionRiskScore] >= 8, "High",
+        Patients[ReadmissionRiskScore] >= 5, "Moderate",
+        "Low"
+    )
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// TABLE: CmsQualityMetrics
+// ══════════════════════════════════════════════════════════════════════════
+
+// --------------------------------------------------------------------------
+// StatusColor — Green / Yellow / Red status indicator
+// --------------------------------------------------------------------------
+// Replaces: SSRS QualityMetrics.rdl inline SQL CASE + SSRS IIF expression
+//
+// Original SQL (inline in SSRS dataset query):
+//   CASE
+//     WHEN actual_value >= target_value THEN 'Green'
+//     WHEN actual_value >= target_value * 0.9 THEN 'Yellow'
+//     ELSE 'Red'
+//   END AS status_color
+//
+// Original SSRS expression (cell background color):
+//   =IIF(Fields!status_color.Value = "Green", "LightGreen",
+//    IIF(Fields!status_color.Value = "Yellow", "Yellow", "LightCoral"))
+//
+// Translation notes:
+//   - SQL CASE WHEN ... → DAX SWITCH(TRUE(), ...)
+//   - SSRS IIF() nesting → Power BI conditional formatting rules.
+//     The IIF expression is NOT converted to DAX; instead, Power BI's
+//     built-in conditional formatting binds directly to this StatusColor
+//     column using a rules-based approach:
+//       If StatusColor = "Green"  → background LightGreen
+//       If StatusColor = "Yellow" → background Yellow
+//       If StatusColor = "Red"    → background LightCoral
+//   - The SSRS @Period parameter is replaced by a slicer on
+//     CmsQualityMetrics[reporting_period].
+// --------------------------------------------------------------------------
+CmsQualityMetrics[StatusColor] =
+    SWITCH(
+        TRUE(),
+        CmsQualityMetrics[actual_value] >= CmsQualityMetrics[target_value],
+            "Green",
+        CmsQualityMetrics[actual_value] >= CmsQualityMetrics[target_value] * 0.9,
+            "Yellow",
+        "Red"
+    )
+
+
+// --------------------------------------------------------------------------
+// StatusSortOrder — Numeric sort key for status (1=Green, 2=Yellow, 3=Red)
+// --------------------------------------------------------------------------
+// Replaces: vw_QualityMetrics.status_sort_order
+//   SQL: CASE WHEN actual >= target THEN 1 ... ELSE 3 END
+// --------------------------------------------------------------------------
+CmsQualityMetrics[StatusSortOrder] =
+    SWITCH(
+        TRUE(),
+        CmsQualityMetrics[actual_value] >= CmsQualityMetrics[target_value], 1,
+        CmsQualityMetrics[actual_value] >= CmsQualityMetrics[target_value] * 0.9, 2,
+        3
+    )
+
+
+// --------------------------------------------------------------------------
+// TargetVariancePct — Percentage variance from target
+// --------------------------------------------------------------------------
+// Replaces: vw_QualityMetrics.target_variance_pct
+//   SQL: ROUND((actual_value - target_value) * 100.0 / target_value, 2)
+//        with CASE WHEN target_value = 0 THEN NULL guard
+//
+// Translation note (SQL CASE NULL guard → DAX DIVIDE):
+//   SQL uses CASE to avoid division by zero, returning NULL.
+//   DAX DIVIDE has a built-in safe-division that returns BLANK() when
+//   the denominator is 0 or BLANK, so no explicit guard is needed.
+// --------------------------------------------------------------------------
+CmsQualityMetrics[TargetVariancePct] =
+    DIVIDE(
+        CmsQualityMetrics[actual_value] - CmsQualityMetrics[target_value],
+        CmsQualityMetrics[target_value]
+    ) * 100

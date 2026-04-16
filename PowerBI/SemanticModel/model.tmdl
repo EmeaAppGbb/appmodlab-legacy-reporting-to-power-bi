@@ -1,0 +1,621 @@
+/// ==========================================================================
+/// Clearwater Health System — Power BI Semantic Model (TMDL)
+/// ==========================================================================
+/// Target:   Power BI Service / Desktop
+/// Source:   Azure SQL Database — ClearwaterHealth
+/// Replaces: Crystal Reports (PatientCensus.rpt, SurgicalOutcomes.rpt)
+///           SSRS Reports (DailyRevenue.rdl, QualityMetrics.rdl)
+///           SQL Objects (usp_GetDailyRevenue, fn_CalculateReadmissionRisk)
+///
+/// Schema:   Star schema with Calendar as the shared date dimension.
+///           Fact tables: Patients, Surgeries, Complications, Charges,
+///                        Payments, Adjustments, CmsQualityMetrics
+///           Dimension tables: Wards, Departments, Calendar
+/// ==========================================================================
+
+model ClearwaterHealth
+    culture: en-US
+    defaultPowerBIDataSourceVersion: powerBI_V3
+    sourceQueryCulture: en-US
+
+    /// ====================================================================
+    /// DATA SOURCE — Azure SQL (replaces Oracle + SQL Server dual sources)
+    /// ====================================================================
+
+    expression AzureSqlConnection =
+        let
+            Source = Sql.Database(
+                "clearwaterhealth.database.windows.net",
+                "ClearwaterHealth"
+            )
+        in
+            Source
+        lineageTag: ds-azure-sql-001
+
+    /// ====================================================================
+    /// DIMENSION: Wards
+    /// Source: dbo.wards (migrated from Oracle CLINICALPRD)
+    /// Used by: Patient Census report (replaces Crystal Reports grouping)
+    /// ====================================================================
+
+    table Wards
+        lineageTag: tbl-wards-001
+
+        partition Wards = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    wards = Source{[Schema="dbo", Item="wards"]}[Data]
+                in
+                    wards
+
+        column ward_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: ward_id
+            lineageTag: col-wards-id
+            summarizeBy: none
+
+        column ward_name
+            dataType: string
+            sourceColumn: ward_name
+            lineageTag: col-wards-name
+
+        column ward_code
+            dataType: string
+            sourceColumn: ward_code
+            lineageTag: col-wards-code
+
+        column bed_capacity
+            dataType: int64
+            sourceColumn: bed_capacity
+            lineageTag: col-wards-capacity
+            summarizeBy: sum
+
+    /// ====================================================================
+    /// FACT / DIMENSION: Patients
+    /// Source: dbo.patients (migrated from Oracle CLINICALPRD)
+    /// Used by: Patient Census, Surgical Outcomes, Readmission Risk reports
+    ///
+    /// Note: Serves as both a fact table (admissions) and a dimension
+    ///       for surgery/complication lookups.
+    /// ====================================================================
+
+    table Patients
+        lineageTag: tbl-patients-001
+
+        partition Patients = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    patients = Source{[Schema="dbo", Item="patients"]}[Data]
+                in
+                    patients
+
+        column patient_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: patient_id
+            lineageTag: col-patients-id
+            summarizeBy: none
+
+        column current_ward_id
+            dataType: int64
+            sourceColumn: current_ward_id
+            lineageTag: col-patients-wardid
+            summarizeBy: none
+
+        column admission_date
+            dataType: dateTime
+            formatString: MM/DD/YYYY
+            sourceColumn: admission_date
+            lineageTag: col-patients-admdate
+
+        column discharge_date
+            dataType: dateTime
+            formatString: MM/DD/YYYY
+            sourceColumn: discharge_date
+            lineageTag: col-patients-disdate
+
+        column patient_age
+            dataType: int64
+            sourceColumn: patient_age
+            lineageTag: col-patients-age
+            summarizeBy: none
+
+        column diagnosis_code
+            dataType: string
+            sourceColumn: diagnosis_code
+            lineageTag: col-patients-diag
+
+        column prior_admissions
+            dataType: int64
+            sourceColumn: prior_admissions
+            lineageTag: col-patients-prioradm
+            summarizeBy: sum
+
+        column comorbidity_count
+            dataType: int64
+            sourceColumn: comorbidity_count
+            lineageTag: col-patients-comorbid
+            summarizeBy: sum
+
+        /// Calculated columns defined in calculated-columns.dax:
+        ///   - LengthOfStay (replaces Crystal SYSDATE - admission_date)
+        ///   - ReadmissionRiskScore (replaces fn_CalculateReadmissionRisk)
+        ///   - ReadmissionRiskLevel
+
+    /// ====================================================================
+    /// FACT: Surgeries
+    /// Source: dbo.surgeries (migrated from Oracle CLINICALPRD)
+    /// Used by: Surgical Outcomes report
+    /// ====================================================================
+
+    table Surgeries
+        lineageTag: tbl-surgeries-001
+
+        partition Surgeries = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    surgeries = Source{[Schema="dbo", Item="surgeries"]}[Data]
+                in
+                    surgeries
+
+        column surgery_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: surgery_id
+            lineageTag: col-surg-id
+            summarizeBy: none
+
+        column patient_id
+            dataType: int64
+            sourceColumn: patient_id
+            lineageTag: col-surg-patid
+            summarizeBy: none
+
+        column surgery_date
+            dataType: dateTime
+            formatString: MM/DD/YYYY
+            sourceColumn: surgery_date
+            lineageTag: col-surg-date
+
+        column procedure_code
+            dataType: string
+            sourceColumn: procedure_code
+            lineageTag: col-surg-proccode
+
+        column procedure_name
+            dataType: string
+            sourceColumn: procedure_name
+            lineageTag: col-surg-procname
+
+        column surgeon_id
+            dataType: int64
+            sourceColumn: surgeon_id
+            lineageTag: col-surg-surgeonid
+            summarizeBy: none
+
+    /// ====================================================================
+    /// FACT: Complications
+    /// Source: dbo.complications (migrated from Oracle CLINICALPRD)
+    /// Used by: Surgical Outcomes report
+    ///
+    /// Note: Previously fetched via N+1 sub-report in Crystal Reports.
+    ///       Now joined at the model level via Surgeries[surgery_id].
+    /// ====================================================================
+
+    table Complications
+        lineageTag: tbl-comp-001
+
+        partition Complications = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    complications = Source{[Schema="dbo", Item="complications"]}[Data]
+                in
+                    complications
+
+        column complication_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: complication_id
+            lineageTag: col-comp-id
+            summarizeBy: none
+
+        column surgery_id
+            dataType: int64
+            sourceColumn: surgery_id
+            lineageTag: col-comp-surgid
+            summarizeBy: none
+
+        column complication_type
+            dataType: string
+            sourceColumn: complication_type
+            lineageTag: col-comp-type
+
+        column severity
+            dataType: string
+            sourceColumn: severity
+            lineageTag: col-comp-severity
+
+    /// ====================================================================
+    /// FACT: Charges
+    /// Source: dbo.charges (SQL Server ClearwaterHealth, migrated to Azure SQL)
+    /// Used by: Daily Revenue report
+    /// ====================================================================
+
+    table Charges
+        lineageTag: tbl-charges-001
+
+        partition Charges = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    charges = Source{[Schema="dbo", Item="charges"]}[Data]
+                in
+                    charges
+
+        column charge_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: charge_id
+            lineageTag: col-chg-id
+            summarizeBy: none
+
+        column department_id
+            dataType: int64
+            sourceColumn: department_id
+            lineageTag: col-chg-deptid
+            summarizeBy: none
+
+        column charge_date
+            dataType: dateTime
+            formatString: MM/DD/YYYY
+            sourceColumn: charge_date
+            lineageTag: col-chg-date
+
+        column charge_amount
+            dataType: decimal
+            formatString: \$#,##0.00
+            sourceColumn: charge_amount
+            lineageTag: col-chg-amount
+            summarizeBy: sum
+
+    /// ====================================================================
+    /// FACT: Payments
+    /// Source: dbo.payments (SQL Server ClearwaterHealth, migrated to Azure SQL)
+    /// Used by: Daily Revenue report
+    /// ====================================================================
+
+    table Payments
+        lineageTag: tbl-payments-001
+
+        partition Payments = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    payments = Source{[Schema="dbo", Item="payments"]}[Data]
+                in
+                    payments
+
+        column payment_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: payment_id
+            lineageTag: col-pay-id
+            summarizeBy: none
+
+        column charge_id
+            dataType: int64
+            sourceColumn: charge_id
+            lineageTag: col-pay-chgid
+            summarizeBy: none
+
+        column payment_amount
+            dataType: decimal
+            formatString: \$#,##0.00
+            sourceColumn: payment_amount
+            lineageTag: col-pay-amount
+            summarizeBy: sum
+
+    /// ====================================================================
+    /// FACT: Adjustments
+    /// Source: dbo.adjustments (SQL Server ClearwaterHealth, migrated to Azure SQL)
+    /// Used by: Daily Revenue report
+    /// ====================================================================
+
+    table Adjustments
+        lineageTag: tbl-adj-001
+
+        partition Adjustments = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    adjustments = Source{[Schema="dbo", Item="adjustments"]}[Data]
+                in
+                    adjustments
+
+        column adjustment_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: adjustment_id
+            lineageTag: col-adj-id
+            summarizeBy: none
+
+        column charge_id
+            dataType: int64
+            sourceColumn: charge_id
+            lineageTag: col-adj-chgid
+            summarizeBy: none
+
+        column adjustment_amount
+            dataType: decimal
+            formatString: \$#,##0.00
+            sourceColumn: adjustment_amount
+            lineageTag: col-adj-amount
+            summarizeBy: sum
+
+    /// ====================================================================
+    /// DIMENSION: Departments
+    /// Source: dbo.departments (SQL Server ClearwaterHealth, migrated to Azure SQL)
+    /// Used by: Daily Revenue report
+    /// ====================================================================
+
+    table Departments
+        lineageTag: tbl-dept-001
+
+        partition Departments = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    departments = Source{[Schema="dbo", Item="departments"]}[Data]
+                in
+                    departments
+
+        column department_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: department_id
+            lineageTag: col-dept-id
+            summarizeBy: none
+
+        column department_name
+            dataType: string
+            sourceColumn: department_name
+            lineageTag: col-dept-name
+
+    /// ====================================================================
+    /// FACT: CmsQualityMetrics
+    /// Source: dbo.cms_quality_metrics (SQL Server ClearwaterHealth)
+    /// Used by: Quality Metrics report
+    ///
+    /// Replaces: SSRS inline SQL with CASE expression for status_color.
+    ///           Status logic now handled via DAX calculated column
+    ///           (see calculated-columns.dax → StatusColor).
+    /// ====================================================================
+
+    table CmsQualityMetrics
+        lineageTag: tbl-qm-001
+
+        partition CmsQualityMetrics = m
+            mode: directQuery
+            source =
+                let
+                    Source = AzureSqlConnection,
+                    metrics = Source{[Schema="dbo", Item="cms_quality_metrics"]}[Data]
+                in
+                    metrics
+
+        column metric_id
+            dataType: int64
+            isKey: true
+            isNullable: false
+            sourceColumn: metric_id
+            lineageTag: col-qm-id
+            summarizeBy: none
+
+        column metric_name
+            dataType: string
+            sourceColumn: metric_name
+            lineageTag: col-qm-name
+
+        column metric_category
+            dataType: string
+            sourceColumn: metric_category
+            lineageTag: col-qm-category
+
+        column reporting_period
+            dataType: string
+            sourceColumn: reporting_period
+            lineageTag: col-qm-period
+
+        column actual_value
+            dataType: decimal
+            sourceColumn: actual_value
+            lineageTag: col-qm-actual
+            summarizeBy: sum
+
+        column target_value
+            dataType: decimal
+            sourceColumn: target_value
+            lineageTag: col-qm-target
+            summarizeBy: sum
+
+        /// Calculated columns defined in calculated-columns.dax:
+        ///   - StatusColor (replaces SSRS CASE / IIF expressions)
+        ///   - TargetVariancePct
+
+    /// ====================================================================
+    /// DIMENSION: Calendar (Date table for time intelligence)
+    /// Source: DAX-generated date dimension covering the full date range
+    ///         needed by all reports.
+    ///
+    /// Note: This replaces date-parameter logic from:
+    ///   - Crystal Reports :StartDate / :EndDate parameters
+    ///   - SSRS @ReportDate parameter (Daily Revenue)
+    ///   - SSRS @Period parameter (Quality Metrics — mapped via
+    ///     reporting_period text slicer, but Calendar enables
+    ///     time-intelligence DAX like TOTALYTD, SAMEPERIODLASTYEAR).
+    /// ====================================================================
+
+    table Calendar
+        lineageTag: tbl-cal-001
+        dataCategory: Time
+
+        partition Calendar = calculated
+            source =
+                VAR MinDate = DATE(2020, 1, 1)
+                VAR MaxDate = DATE(2030, 12, 31)
+                RETURN
+                ADDCOLUMNS(
+                    CALENDAR(MinDate, MaxDate),
+                    "Year", YEAR([Date]),
+                    "Month", MONTH([Date]),
+                    "MonthName", FORMAT([Date], "MMMM"),
+                    "Quarter", "Q" & QUARTER([Date]),
+                    "YearMonth", FORMAT([Date], "YYYY-MM"),
+                    "DayOfWeek", WEEKDAY([Date]),
+                    "DayName", FORMAT([Date], "dddd"),
+                    "WeekOfYear", WEEKNUM([Date]),
+                    "IsWeekend", IF(WEEKDAY([Date]) IN {1, 7}, TRUE(), FALSE()),
+                    "FiscalYear", IF(MONTH([Date]) >= 7, YEAR([Date]) + 1, YEAR([Date])),
+                    "FiscalQuarter", "FQ" & IF(MONTH([Date]) >= 7, QUARTER([Date]) - 2, QUARTER([Date]) + 2)
+                )
+
+        column Date
+            dataType: dateTime
+            isKey: true
+            isNullable: false
+            formatString: MM/DD/YYYY
+            lineageTag: col-cal-date
+
+        column Year
+            dataType: int64
+            lineageTag: col-cal-year
+            summarizeBy: none
+
+        column Month
+            dataType: int64
+            lineageTag: col-cal-month
+            summarizeBy: none
+            sortByColumn: Date
+
+        column MonthName
+            dataType: string
+            lineageTag: col-cal-monthname
+            sortByColumn: Month
+
+        column Quarter
+            dataType: string
+            lineageTag: col-cal-quarter
+
+        column YearMonth
+            dataType: string
+            lineageTag: col-cal-yearmonth
+            sortByColumn: Date
+
+        column DayOfWeek
+            dataType: int64
+            lineageTag: col-cal-dow
+            summarizeBy: none
+
+        column DayName
+            dataType: string
+            lineageTag: col-cal-dayname
+            sortByColumn: DayOfWeek
+
+        column WeekOfYear
+            dataType: int64
+            lineageTag: col-cal-weekofyear
+            summarizeBy: none
+
+        column IsWeekend
+            dataType: boolean
+            lineageTag: col-cal-isweekend
+
+        column FiscalYear
+            dataType: int64
+            lineageTag: col-cal-fiscalyear
+            summarizeBy: none
+
+        column FiscalQuarter
+            dataType: string
+            lineageTag: col-cal-fiscalqtr
+
+    /// ====================================================================
+    /// RELATIONSHIPS — Star Schema
+    /// See relationships.md for full documentation.
+    /// ====================================================================
+
+    /// -- Patient Census star --
+    relationship PatientToWard
+        fromColumn: Patients.current_ward_id
+        toColumn: Wards.ward_id
+        crossFilteringBehavior: oneDirection
+
+    relationship PatientAdmissionToCalendar
+        fromColumn: Patients.admission_date
+        toColumn: Calendar.Date
+        isActive: true
+        crossFilteringBehavior: oneDirection
+
+    relationship PatientDischargeToCalendar
+        fromColumn: Patients.discharge_date
+        toColumn: Calendar.Date
+        isActive: false
+        crossFilteringBehavior: oneDirection
+
+    /// -- Surgical Outcomes star --
+    relationship SurgeryToPatient
+        fromColumn: Surgeries.patient_id
+        toColumn: Patients.patient_id
+        crossFilteringBehavior: oneDirection
+
+    relationship SurgeryToCalendar
+        fromColumn: Surgeries.surgery_date
+        toColumn: Calendar.Date
+        crossFilteringBehavior: oneDirection
+
+    relationship ComplicationToSurgery
+        fromColumn: Complications.surgery_id
+        toColumn: Surgeries.surgery_id
+        crossFilteringBehavior: oneDirection
+
+    /// -- Revenue Cycle star --
+    relationship ChargeToDepartment
+        fromColumn: Charges.department_id
+        toColumn: Departments.department_id
+        crossFilteringBehavior: oneDirection
+
+    relationship ChargeToCalendar
+        fromColumn: Charges.charge_date
+        toColumn: Calendar.Date
+        crossFilteringBehavior: oneDirection
+
+    relationship PaymentToCharge
+        fromColumn: Payments.charge_id
+        toColumn: Charges.charge_id
+        crossFilteringBehavior: oneDirection
+
+    relationship AdjustmentToCharge
+        fromColumn: Adjustments.charge_id
+        toColumn: Charges.charge_id
+        crossFilteringBehavior: oneDirection
