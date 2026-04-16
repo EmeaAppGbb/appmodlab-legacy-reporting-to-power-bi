@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Crystal Report — SurgicalOutcomes.rpt</title>
+<style>
+  body { margin:0; padding:32px; background:#1e1e2e; color:#cdd6f4; font-family:'Cascadia Code','Fira Code',monospace; font-size:14px; }
+  .header { background:#313244; border-radius:8px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; gap:12px; }
+  .header .icon { font-size:28px; }
+  .header h1 { margin:0; font-size:18px; color:#89b4fa; }
+  .header .badge { background:#f38ba8; color:#1e1e2e; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:700; }
+  .card { background:#181825; border:1px solid #313244; border-radius:8px; margin-bottom:20px; overflow:hidden; }
+  .card-title { background:#313244; padding:10px 16px; font-size:13px; font-weight:700; color:#a6adc8; text-transform:uppercase; letter-spacing:.5px; }
+  pre { margin:0; padding:16px; overflow-x:auto; line-height:1.6; }
+  .kw  { color:#cba6f7; font-weight:700; }
+  .fn  { color:#89b4fa; }
+  .str { color:#a6e3a1; }
+  .op  { color:#f9e2af; }
+  .cm  { color:#6c7086; font-style:italic; }
+  .num { color:#fab387; }
+  .tbl { border-collapse:collapse; width:100%; font-size:13px; }
+  .tbl th { background:#313244; text-align:left; padding:8px 12px; color:#89b4fa; }
+  .tbl td { padding:8px 12px; border-bottom:1px solid #313244; }
+  .meta { display:grid; grid-template-columns:140px 1fr; gap:4px 16px; padding:16px; font-size:13px; }
+  .meta .label { color:#6c7086; }
+  .warn { background:#f9e2af22; border-left:3px solid #f9e2af; padding:10px 16px; margin:16px; border-radius:4px; font-size:13px; color:#f9e2af; }
+  .footer { text-align:center; color:#6c7086; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="icon">🏥</span>
+  <h1>SurgicalOutcomes.rpt — Crystal Report Definition</h1>
+  <span class="badge">Crystal Reports</span>
+</div>
+
+<div class="card">
+  <div class="card-title">📋 Report Metadata</div>
+  <div class="meta">
+    <span class="label">Report Name</span><span>Surgical Outcomes Report</span>
+    <span class="label">Data Source</span><span>OracleConnection (Oracle 12c)</span>
+    <span class="label">Parameters</span><span>StartDate (Date), EndDate (Date)</span>
+    <span class="label">Sub-Reports</span><span>ComplicationDetails (linked on surgery_id)</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">🔍 Embedded SQL Query</div>
+  <pre><span class="kw">SELECT</span> s.surgery_id, s.surgery_date, s.procedure_code, s.surgeon_name,
+       s.duration_minutes, s.outcome_code, c.complication_description
+<span class="kw">FROM</span> surgeries s
+<span class="kw">LEFT JOIN</span> complications c <span class="kw">ON</span> s.surgery_id <span class="op">=</span> c.surgery_id
+<span class="kw">WHERE</span> s.surgery_date <span class="kw">BETWEEN</span> <span class="str">:StartDate</span> <span class="kw">AND</span> <span class="str">:EndDate</span></pre>
+</div>
+
+<div class="card">
+  <div class="card-title">📐 Crystal Formulas</div>
+  <pre><span class="cm">// Complication Rate — across all surgeries in range</span>
+<span class="fn">@ComplicationRate</span> <span class="op">=</span> <span class="fn">Count</span>({complications.complication_id}) <span class="op">/</span> <span class="fn">Count</span>({surgeries.surgery_id}) <span class="op">*</span> <span class="num">100</span></pre>
+</div>
+
+<div class="warn">⚠️ <strong>Migration Complexity — HIGH:</strong> Sub-report "ComplicationDetails" linked on surgery_id. In Power BI, replace with drill-through page or tooltip visual.</div>
+
+<div class="card">
+  <div class="card-title">📊 Report Structure</div>
+  <table class="tbl">
+    <tr><th>Element</th><th>Description</th></tr>
+    <tr><td>Parameters</td><td>StartDate, EndDate — date range picker</td></tr>
+    <tr><td>Main Report</td><td>Surgeries list with outcome codes and durations</td></tr>
+    <tr><td>Sub-Report</td><td>ComplicationDetails — linked per surgery_id (N+1 query pattern)</td></tr>
+    <tr><td>Formula</td><td>@ComplicationRate — aggregate percentage</td></tr>
+  </table>
+</div>
+
+<div class="footer">Clearwater Health System — Legacy Report Inventory — appmodlab-legacy-reporting-to-power-bi</div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SSRS Report — QualityMetrics.rdl</title>
+<style>
+  body { margin:0; padding:32px; background:#1e1e2e; color:#cdd6f4; font-family:'Cascadia Code','Fira Code',monospace; font-size:14px; }
+  .header { background:#313244; border-radius:8px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; gap:12px; }
+  .header .icon { font-size:28px; }
+  .header h1 { margin:0; font-size:18px; color:#89b4fa; }
+  .header .badge { background:#89b4fa; color:#1e1e2e; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:700; }
+  .card { background:#181825; border:1px solid #313244; border-radius:8px; margin-bottom:20px; overflow:hidden; }
+  .card-title { background:#313244; padding:10px 16px; font-size:13px; font-weight:700; color:#a6adc8; text-transform:uppercase; letter-spacing:.5px; }
+  pre { margin:0; padding:16px; overflow-x:auto; line-height:1.6; }
+  .kw  { color:#cba6f7; font-weight:700; }
+  .fn  { color:#89b4fa; }
+  .str { color:#a6e3a1; }
+  .op  { color:#f9e2af; }
+  .cm  { color:#6c7086; font-style:italic; }
+  .num { color:#fab387; }
+  .tbl { border-collapse:collapse; width:100%; font-size:13px; }
+  .tbl th { background:#313244; text-align:left; padding:8px 12px; color:#89b4fa; }
+  .tbl td { padding:8px 12px; border-bottom:1px solid #313244; }
+  .meta { display:grid; grid-template-columns:140px 1fr; gap:4px 16px; padding:16px; font-size:13px; }
+  .meta .label { color:#6c7086; }
+  .status-g { display:inline-block; background:#a6e3a1; color:#1e1e2e; padding:2px 10px; border-radius:10px; font-weight:700; font-size:12px; }
+  .status-y { display:inline-block; background:#f9e2af; color:#1e1e2e; padding:2px 10px; border-radius:10px; font-weight:700; font-size:12px; }
+  .status-r { display:inline-block; background:#f38ba8; color:#1e1e2e; padding:2px 10px; border-radius:10px; font-weight:700; font-size:12px; }
+  .footer { text-align:center; color:#6c7086; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="icon">⭐</span>
+  <h1>QualityMetrics.rdl — SSRS Report Definition</h1>
+  <span class="badge">SSRS 2016</span>
+</div>
+
+<div class="card">
+  <div class="card-title">📋 Report Metadata</div>
+  <div class="meta">
+    <span class="label">Data Source</span><span>SQL Server — ClearwaterHealth</span>
+    <span class="label">Parameters</span><span>@Period (String — reporting period)</span>
+    <span class="label">Distribution</span><span>Excel — Monthly 1st at 6 AM to Quality Director &amp; Compliance</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">🔍 Inline SQL Query</div>
+  <pre><span class="kw">SELECT</span> metric_name, actual_value, target_value,
+       <span class="kw">CASE</span>
+           <span class="kw">WHEN</span> actual_value <span class="op">&gt;=</span> target_value            <span class="kw">THEN</span> <span class="str">'Green'</span>
+           <span class="kw">WHEN</span> actual_value <span class="op">&gt;=</span> target_value <span class="op">*</span> <span class="num">0.9</span>  <span class="kw">THEN</span> <span class="str">'Yellow'</span>
+           <span class="kw">ELSE</span> <span class="str">'Red'</span>
+       <span class="kw">END AS</span> status_color
+<span class="kw">FROM</span> dbo.cms_quality_metrics
+<span class="kw">WHERE</span> reporting_period <span class="op">=</span> <span class="str">@Period</span></pre>
+</div>
+
+<div class="card">
+  <div class="card-title">🎨 Conditional Formatting (SSRS Expression)</div>
+  <pre><span class="cm">// Background colour expression on MetricName textbox</span>
+<span class="op">=</span><span class="fn">IIF</span>(Fields!status_color.Value <span class="op">=</span> <span class="str">"Green"</span>,  <span class="str">"LightGreen"</span>,
+  <span class="fn">IIF</span>(Fields!status_color.Value <span class="op">=</span> <span class="str">"Yellow"</span>, <span class="str">"Yellow"</span>,
+                                              <span class="str">"LightCoral"</span>))</pre>
+</div>
+
+<div class="card">
+  <div class="card-title">📊 Status Indicator Preview</div>
+  <table class="tbl">
+    <tr><th>Metric</th><th>Actual</th><th>Target</th><th>Status</th></tr>
+    <tr><td>30-Day Readmission Rate</td><td>12.3%</td><td>15.0%</td><td><span class="status-g">Green</span></td></tr>
+    <tr><td>Hospital-Acquired Infection</td><td>1.8%</td><td>2.0%</td><td><span class="status-y">Yellow</span></td></tr>
+    <tr><td>Patient Falls per 1000 Days</td><td>4.2</td><td>3.0</td><td><span class="status-r">Red</span></td></tr>
+    <tr><td>Hand Hygiene Compliance</td><td>96.1%</td><td>95.0%</td><td><span class="status-g">Green</span></td></tr>
+  </table>
+</div>
+
+<div class="footer">Clearwater Health System — Legacy Report Inventory — appmodlab-legacy-reporting-to-power-bi</div>
+</body>
+</html>

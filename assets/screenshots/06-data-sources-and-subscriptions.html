@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Data Sources &amp; Subscriptions</title>
+<style>
+  body { margin:0; padding:32px; background:#1e1e2e; color:#cdd6f4; font-family:'Cascadia Code','Fira Code',monospace; font-size:14px; }
+  .header { background:#313244; border-radius:8px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; gap:12px; }
+  .header .icon { font-size:28px; }
+  .header h1 { margin:0; font-size:18px; color:#89b4fa; }
+  .card { background:#181825; border:1px solid #313244; border-radius:8px; margin-bottom:20px; overflow:hidden; }
+  .card-title { background:#313244; padding:10px 16px; font-size:13px; font-weight:700; color:#a6adc8; text-transform:uppercase; letter-spacing:.5px; }
+  .tbl { border-collapse:collapse; width:100%; font-size:13px; }
+  .tbl th { background:#313244; text-align:left; padding:8px 12px; color:#89b4fa; }
+  .tbl td { padding:8px 12px; border-bottom:1px solid #313244; }
+  .badge-ora { background:#f38ba8; color:#1e1e2e; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700; }
+  .badge-sql { background:#89b4fa; color:#1e1e2e; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700; }
+  .footer { text-align:center; color:#6c7086; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="icon">🔌</span>
+  <h1>Legacy Data Sources &amp; Email Subscriptions</h1>
+</div>
+
+<div class="card">
+  <div class="card-title">🗄️ Data Source Connections</div>
+  <table class="tbl">
+    <tr><th>Config File</th><th>Provider</th><th>Server</th><th>Database / Service</th><th>Auth</th></tr>
+    <tr>
+      <td>OracleConnection.config</td>
+      <td><span class="badge-ora">Oracle</span></td>
+      <td>clearwater-ora-prod.hospital.local:1521</td>
+      <td>CLINICALPRD</td>
+      <td>REPORTS_USER (password)</td>
+    </tr>
+    <tr>
+      <td>SQLServerConnection.config</td>
+      <td><span class="badge-sql">SQL Server</span></td>
+      <td>CLEARWATER-SQL01</td>
+      <td>ClearwaterHealth</td>
+      <td>Windows Integrated</td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-title">📬 Email Subscriptions (SubscriptionConfig.xml)</div>
+  <table class="tbl">
+    <tr><th>Report</th><th>Schedule</th><th>Format</th><th>Recipients</th></tr>
+    <tr>
+      <td>Daily Revenue</td>
+      <td>Daily at 7:00 AM</td>
+      <td>PDF</td>
+      <td>cfo@clearwaterhealth.org, finance-team@clearwaterhealth.org</td>
+    </tr>
+    <tr>
+      <td>Quality Metrics</td>
+      <td>Monthly on 1st at 6:00 AM</td>
+      <td>Excel</td>
+      <td>quality-director@clearwaterhealth.org, compliance@clearwaterhealth.org</td>
+    </tr>
+    <tr>
+      <td>Patient Census</td>
+      <td>Daily at 5 AM, 12 PM, 8 PM</td>
+      <td>PDF</td>
+      <td>nursing-supervisors@clearwaterhealth.org</td>
+    </tr>
+  </table>
+</div>
+
+<div class="footer">Clearwater Health System — Legacy Report Inventory — appmodlab-legacy-reporting-to-power-bi</div>
+</body>
+</html>

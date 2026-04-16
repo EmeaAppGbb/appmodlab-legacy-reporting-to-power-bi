@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SSRS Report — DailyRevenue.rdl</title>
+<style>
+  body { margin:0; padding:32px; background:#1e1e2e; color:#cdd6f4; font-family:'Cascadia Code','Fira Code',monospace; font-size:14px; }
+  .header { background:#313244; border-radius:8px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; gap:12px; }
+  .header .icon { font-size:28px; }
+  .header h1 { margin:0; font-size:18px; color:#89b4fa; }
+  .header .badge { background:#89b4fa; color:#1e1e2e; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:700; }
+  .card { background:#181825; border:1px solid #313244; border-radius:8px; margin-bottom:20px; overflow:hidden; }
+  .card-title { background:#313244; padding:10px 16px; font-size:13px; font-weight:700; color:#a6adc8; text-transform:uppercase; letter-spacing:.5px; }
+  pre { margin:0; padding:16px; overflow-x:auto; line-height:1.6; }
+  .kw  { color:#cba6f7; font-weight:700; }
+  .fn  { color:#89b4fa; }
+  .str { color:#a6e3a1; }
+  .op  { color:#f9e2af; }
+  .cm  { color:#6c7086; font-style:italic; }
+  .tag { color:#f38ba8; }
+  .att { color:#89dceb; }
+  .val { color:#a6e3a1; }
+  .num { color:#fab387; }
+  .tbl { border-collapse:collapse; width:100%; font-size:13px; }
+  .tbl th { background:#313244; text-align:left; padding:8px 12px; color:#89b4fa; }
+  .tbl td { padding:8px 12px; border-bottom:1px solid #313244; }
+  .meta { display:grid; grid-template-columns:140px 1fr; gap:4px 16px; padding:16px; font-size:13px; }
+  .meta .label { color:#6c7086; }
+  .footer { text-align:center; color:#6c7086; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="icon">💰</span>
+  <h1>DailyRevenue.rdl — SSRS Report Definition</h1>
+  <span class="badge">SSRS 2016</span>
+</div>
+
+<div class="card">
+  <div class="card-title">📋 Report Metadata</div>
+  <div class="meta">
+    <span class="label">Data Source</span><span>SQL Server — ClearwaterHealth</span>
+    <span class="label">Parameters</span><span>@ReportDate (DateTime, default = Today())</span>
+    <span class="label">Data Retrieval</span><span>Stored Procedure: usp_GetDailyRevenue</span>
+    <span class="label">Distribution</span><span>PDF — Daily at 7:00 AM to CFO &amp; Finance team</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">🔍 SSRS Dataset — Command Text</div>
+  <pre><span class="kw">EXEC</span> dbo.<span class="fn">usp_GetDailyRevenue</span> <span class="str">@ReportDate</span></pre>
+</div>
+
+<div class="card">
+  <div class="card-title">⚙️ Backing Stored Procedure — usp_GetDailyRevenue</div>
+  <pre><span class="kw">CREATE PROCEDURE</span> dbo.<span class="fn">usp_GetDailyRevenue</span>
+    <span class="str">@ReportDate</span> <span class="kw">DATE</span>
+<span class="kw">AS BEGIN</span>
+    <span class="kw">SET NOCOUNT ON</span>;
+
+    <span class="kw">SELECT</span>
+        d.department_name,
+        <span class="fn">SUM</span>(c.charge_amount)                                    <span class="kw">AS</span> charges_amount,
+        <span class="fn">SUM</span>(p.payment_amount)                                   <span class="kw">AS</span> payments_amount,
+        <span class="fn">SUM</span>(c.charge_amount) <span class="op">-</span> <span class="fn">SUM</span>(<span class="fn">ISNULL</span>(adj.adjustment_amount, <span class="num">0</span>)) <span class="kw">AS</span> net_revenue
+    <span class="kw">FROM</span> departments d
+    <span class="kw">INNER JOIN</span> charges c   <span class="kw">ON</span> d.department_id <span class="op">=</span> c.department_id
+    <span class="kw">LEFT JOIN</span>  payments p  <span class="kw">ON</span> c.charge_id    <span class="op">=</span> p.charge_id
+    <span class="kw">LEFT JOIN</span>  adjustments adj <span class="kw">ON</span> c.charge_id <span class="op">=</span> adj.charge_id
+    <span class="kw">WHERE</span> <span class="fn">CAST</span>(c.charge_date <span class="kw">AS DATE</span>) <span class="op">=</span> <span class="str">@ReportDate</span>
+    <span class="kw">GROUP BY</span> d.department_name
+    <span class="kw">ORDER BY</span> net_revenue <span class="kw">DESC</span>;
+<span class="kw">END</span></pre>
+</div>
+
+<div class="card">
+  <div class="card-title">📊 Tablix Layout (4 Columns)</div>
+  <table class="tbl">
+    <tr><th>Column</th><th>Width</th><th>Field</th><th>Format</th></tr>
+    <tr><td>Department</td><td>2 in</td><td>=Fields!Department.Value</td><td>Text</td></tr>
+    <tr><td>Charges</td><td>1.5 in</td><td>=Fields!ChargesAmount.Value</td><td>$#,##0.00</td></tr>
+    <tr><td>Payments</td><td>1.5 in</td><td>=Fields!PaymentsAmount.Value</td><td>$#,##0.00</td></tr>
+    <tr><td>Net Revenue</td><td>1.5 in</td><td>=Fields!NetRevenue.Value</td><td>$#,##0.00</td></tr>
+  </table>
+</div>
+
+<div class="footer">Clearwater Health System — Legacy Report Inventory — appmodlab-legacy-reporting-to-power-bi</div>
+</body>
+</html>

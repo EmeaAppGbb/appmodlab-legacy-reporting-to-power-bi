@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SQL Objects — Stored Procedure, View, Function</title>
+<style>
+  body { margin:0; padding:32px; background:#1e1e2e; color:#cdd6f4; font-family:'Cascadia Code','Fira Code',monospace; font-size:14px; }
+  .header { background:#313244; border-radius:8px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; gap:12px; }
+  .header .icon { font-size:28px; }
+  .header h1 { margin:0; font-size:18px; color:#89b4fa; }
+  .header .badge { background:#a6e3a1; color:#1e1e2e; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:700; }
+  .card { background:#181825; border:1px solid #313244; border-radius:8px; margin-bottom:20px; overflow:hidden; }
+  .card-title { background:#313244; padding:10px 16px; font-size:13px; font-weight:700; color:#a6adc8; text-transform:uppercase; letter-spacing:.5px; }
+  pre { margin:0; padding:16px; overflow-x:auto; line-height:1.6; }
+  .kw  { color:#cba6f7; font-weight:700; }
+  .fn  { color:#89b4fa; }
+  .str { color:#a6e3a1; }
+  .op  { color:#f9e2af; }
+  .cm  { color:#6c7086; font-style:italic; }
+  .num { color:#fab387; }
+  .footer { text-align:center; color:#6c7086; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="icon">🗄️</span>
+  <h1>SQL Server Objects — Stored Procedure · View · Function</h1>
+  <span class="badge">SQL Server 2016</span>
+</div>
+
+<!-- Stored Procedure -->
+<div class="card">
+  <div class="card-title">⚙️ StoredProcedures / usp_GetDailyRevenue.sql</div>
+  <pre><span class="kw">CREATE PROCEDURE</span> dbo.<span class="fn">usp_GetDailyRevenue</span>
+    <span class="str">@ReportDate</span> <span class="kw">DATE</span>
+<span class="kw">AS BEGIN</span>
+    <span class="kw">SET NOCOUNT ON</span>;
+
+    <span class="kw">SELECT</span>
+        d.department_name,
+        <span class="fn">SUM</span>(c.charge_amount)                                       <span class="kw">AS</span> charges_amount,
+        <span class="fn">SUM</span>(p.payment_amount)                                      <span class="kw">AS</span> payments_amount,
+        <span class="fn">SUM</span>(c.charge_amount) <span class="op">-</span> <span class="fn">SUM</span>(<span class="fn">ISNULL</span>(adj.adjustment_amount, <span class="num">0</span>)) <span class="kw">AS</span> net_revenue
+    <span class="kw">FROM</span> departments d
+    <span class="kw">INNER JOIN</span> charges c      <span class="kw">ON</span> d.department_id <span class="op">=</span> c.department_id
+    <span class="kw">LEFT JOIN</span>  payments p     <span class="kw">ON</span> c.charge_id    <span class="op">=</span> p.charge_id
+    <span class="kw">LEFT JOIN</span>  adjustments adj <span class="kw">ON</span> c.charge_id   <span class="op">=</span> adj.charge_id
+    <span class="kw">WHERE</span> <span class="fn">CAST</span>(c.charge_date <span class="kw">AS DATE</span>) <span class="op">=</span> <span class="str">@ReportDate</span>
+    <span class="kw">GROUP BY</span> d.department_name
+    <span class="kw">ORDER BY</span> net_revenue <span class="kw">DESC</span>;
+<span class="kw">END</span>
+<span class="kw">GO</span></pre>
+</div>
+
+<!-- View -->
+<div class="card">
+  <div class="card-title">👁️ Views / vw_PatientCensus.sql</div>
+  <pre><span class="kw">CREATE VIEW</span> dbo.<span class="fn">vw_PatientCensus</span>
+<span class="kw">AS</span>
+<span class="kw">SELECT</span>
+    w.ward_id,
+    w.ward_name,
+    w.ward_code,
+    w.bed_capacity,
+    <span class="fn">COUNT</span>(p.patient_id)                                                 <span class="kw">AS</span> current_patients,
+    <span class="fn">CAST</span>(<span class="fn">COUNT</span>(p.patient_id) <span class="kw">AS FLOAT</span>) <span class="op">/</span> w.bed_capacity <span class="op">*</span> <span class="num">100</span>            <span class="kw">AS</span> occupancy_percent,
+    <span class="fn">AVG</span>(<span class="fn">DATEDIFF</span>(<span class="kw">DAY</span>, p.admission_date, <span class="fn">GETDATE</span>()))                    <span class="kw">AS</span> avg_length_of_stay
+<span class="kw">FROM</span> wards w
+<span class="kw">LEFT JOIN</span> patients p <span class="kw">ON</span> w.ward_id <span class="op">=</span> p.current_ward_id <span class="kw">AND</span> p.discharge_date <span class="kw">IS NULL</span>
+<span class="kw">GROUP BY</span> w.ward_id, w.ward_name, w.ward_code, w.bed_capacity;
+<span class="kw">GO</span></pre>
+</div>
+
+<!-- Function -->
+<div class="card">
+  <div class="card-title">🧮 Functions / fn_CalculateReadmissionRisk.sql</div>
+  <pre><span class="kw">CREATE FUNCTION</span> dbo.<span class="fn">fn_CalculateReadmissionRisk</span>
+(
+    <span class="str">@PatientAge</span>       <span class="kw">INT</span>,
+    <span class="str">@DiagnosisCode</span>    <span class="kw">VARCHAR</span>(<span class="num">10</span>),
+    <span class="str">@PriorAdmissions</span>  <span class="kw">INT</span>,
+    <span class="str">@ComorbidityCount</span> <span class="kw">INT</span>
+)
+<span class="kw">RETURNS VARCHAR</span>(<span class="num">10</span>)
+<span class="kw">AS BEGIN</span>
+    <span class="kw">DECLARE</span> <span class="str">@RiskScore</span> <span class="kw">INT</span> <span class="op">=</span> <span class="num">0</span>;
+    <span class="kw">DECLARE</span> <span class="str">@RiskLevel</span> <span class="kw">VARCHAR</span>(<span class="num">10</span>);
+
+    <span class="cm">-- Age factor</span>
+    <span class="kw">IF</span> <span class="str">@PatientAge</span> <span class="op">&gt;=</span> <span class="num">65</span> <span class="kw">SET</span> <span class="str">@RiskScore</span> <span class="op">=</span> <span class="str">@RiskScore</span> <span class="op">+</span> <span class="num">2</span>;
+    <span class="kw">IF</span> <span class="str">@PatientAge</span> <span class="op">&gt;=</span> <span class="num">75</span> <span class="kw">SET</span> <span class="str">@RiskScore</span> <span class="op">=</span> <span class="str">@RiskScore</span> <span class="op">+</span> <span class="num">1</span>;
+
+    <span class="cm">-- Prior admissions factor</span>
+    <span class="kw">SET</span> <span class="str">@RiskScore</span> <span class="op">=</span> <span class="str">@RiskScore</span> <span class="op">+</span> (<span class="str">@PriorAdmissions</span> <span class="op">*</span> <span class="num">2</span>);
+
+    <span class="cm">-- Comorbidity factor</span>
+    <span class="kw">SET</span> <span class="str">@RiskScore</span> <span class="op">=</span> <span class="str">@RiskScore</span> <span class="op">+</span> <span class="str">@ComorbidityCount</span>;
+
+    <span class="cm">-- High-risk diagnoses (heart failure, COPD, kidney disease)</span>
+    <span class="kw">IF</span> <span class="str">@DiagnosisCode</span> <span class="kw">IN</span> (<span class="str">'I50'</span>, <span class="str">'J44'</span>, <span class="str">'N18'</span>)
+        <span class="kw">SET</span> <span class="str">@RiskScore</span> <span class="op">=</span> <span class="str">@RiskScore</span> <span class="op">+</span> <span class="num">3</span>;
+
+    <span class="cm">-- Risk level classification</span>
+    <span class="kw">SET</span> <span class="str">@RiskLevel</span> <span class="op">=</span> <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> <span class="str">@RiskScore</span> <span class="op">&gt;=</span> <span class="num">8</span> <span class="kw">THEN</span> <span class="str">'High'</span>
+        <span class="kw">WHEN</span> <span class="str">@RiskScore</span> <span class="op">&gt;=</span> <span class="num">5</span> <span class="kw">THEN</span> <span class="str">'Moderate'</span>
+        <span class="kw">ELSE</span> <span class="str">'Low'</span>
+    <span class="kw">END</span>;
+
+    <span class="kw">RETURN</span> <span class="str">@RiskLevel</span>;
+<span class="kw">END</span>
+<span class="kw">GO</span></pre>
+</div>
+
+<div class="footer">Clearwater Health System — Legacy Report Inventory — appmodlab-legacy-reporting-to-power-bi</div>
+</body>
+</html>

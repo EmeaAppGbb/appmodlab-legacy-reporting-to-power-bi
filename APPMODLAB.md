@@ -287,6 +287,19 @@ CALCULATE(
 **Issue:** Paginated report rendering slowly  
 **Solution:** Optimize dataset queries, use query folding where possible
 
+## Initial Application Screenshots
+
+The following syntax-highlighted HTML renderings capture the legacy reporting codebase as it exists before modernization. Open each file in a browser to view or take screenshots.
+
+| # | Screenshot | Description |
+|---|-----------|-------------|
+| 1 | [01-crystal-patient-census.html](assets/screenshots/01-crystal-patient-census.html) | Crystal Report definition for the real-time Patient Census — embedded Oracle SQL, `@LengthOfStay` and `@WardOccupancy` formulas, group-by-ward layout with conditional red formatting above 95% occupancy. |
+| 2 | [02-crystal-surgical-outcomes.html](assets/screenshots/02-crystal-surgical-outcomes.html) | Crystal Report definition for Surgical Outcomes — date-range parameters, `LEFT JOIN` to complications table, `@ComplicationRate` formula, and the **ComplicationDetails** sub-report (N+1 anti-pattern). |
+| 3 | [03-ssrs-daily-revenue.html](assets/screenshots/03-ssrs-daily-revenue.html) | SSRS `.rdl` definition for Daily Revenue — calls `usp_GetDailyRevenue` stored procedure, 4-column Tablix (Department, Charges, Payments, Net Revenue) with currency formatting. Full stored procedure source included. |
+| 4 | [04-ssrs-quality-metrics.html](assets/screenshots/04-ssrs-quality-metrics.html) | SSRS `.rdl` definition for CMS Quality Metrics — inline SQL with `CASE`-based status coloring (Green/Yellow/Red), `IIF` conditional background expression, and sample metric indicators. |
+| 5 | [05-sql-stored-proc-view-function.html](assets/screenshots/05-sql-stored-proc-view-function.html) | All three SQL Server objects: `usp_GetDailyRevenue` (stored procedure), `vw_PatientCensus` (view with occupancy + avg LOS), and `fn_CalculateReadmissionRisk` (scalar function with age/diagnosis/comorbidity scoring). |
+| 6 | [06-data-sources-and-subscriptions.html](assets/screenshots/06-data-sources-and-subscriptions.html) | Legacy infrastructure: Oracle and SQL Server connection configs, plus the three email subscription schedules (Daily Revenue → CFO, Quality Metrics → Compliance, Patient Census → Nursing 3×/day). |
+
 ---
 
 **Estimated Duration:** 4-6 hours  
