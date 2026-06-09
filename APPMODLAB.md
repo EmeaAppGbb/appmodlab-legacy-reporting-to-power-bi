@@ -11,7 +11,7 @@ modernizationTools: []
 agenticTools: []
 tags: ["power-bi", "crystal-reports", "ssrs", "dax", "reporting", "business-intelligence"]
 extensions: ["github.copilot"]
-thumbnail: ""
+thumbnail: "https://raw.githubusercontent.com/EmeaAppGbb/appmodlab-legacy-reporting-to-power-bi/main/assets/thumbnail-gpt-image.png"
 video: ""
 version: "1.0.0"
 ---
